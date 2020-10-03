@@ -40,17 +40,32 @@ namespace cAlgo.Robots
         public SegmentTracerEngine segmentTracer;
         public ArmonicFinderEngine armonicFinder;
 
+        public Button button;
+        public Panel panel;
+
         protected override void OnStart()
         {
             DateTime FromDate, ToDate;
             int MinutesFineCalc;
             TimeFrame TFFineCalc;
-
+            
             segmentTracer = new SegmentTracerEngine(this);
             armonicFinder = new ArmonicFinderEngine(this);
 
             //Timer.Start(TimeSpan.FromMilliseconds(50));
+            button = new Button() {
+                Text = "<Nome del Pattern...>",
+                Margin = 9
+            };
+            button.Click += OnButtonClick;
 
+            panel = new StackPanel() {
+                Width = 120,
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            
+            panel.AddChild(button);
+            Chart.AddControl(panel);
             if (InitialPeriods > 0 && !IsBacktesting)
             {
                 //Disabilito l'entrata
@@ -109,11 +124,30 @@ namespace cAlgo.Robots
 
                 //stampo le statistiche
                 armonicFinder.Statistics.Print();
-                Chart.DrawStaticText("TIMEFRAME", string.Concat("Original TimeFrame {0} , Fine TimeFrame {1}", TimeFrame.ToString(), TFFineCalc.ToString()), VerticalAlignment.Bottom, HorizontalAlignment.Right, Color.Brown);
+
+                //stampo i timeframe utilizzati per la ricerca dei pattern 
+                string text;
+                text = string.Format("Original TimeFrame {0} , Fine TimeFrame {1} \n", TimeFrame.ToString(), TFFineCalc.ToString());
+                text += string.Format("PatternCount {0} ", armonicFinder.GetPatternCount());
+                text += string.Format("CompleatedPatternCount {0} ", armonicFinder.GetPatternCount(true));
+                text += string.Format("DrawablePatternCount {0} ", armonicFinder.GetPatternCount(false,true ));
+
+                Chart.DrawStaticText("TIMEFRAME", text, VerticalAlignment.Bottom, HorizontalAlignment.Right, Color.Brown);
+
+                Bar _null = new Bar();
+                armonicFinder.FineCalculate(false, Bid, _null, Bars.Last(0).OpenTime);
             }
 
 
         }
+
+        private void OnButtonClick(ButtonClickEventArgs obj) {
+            foreach(Watchlist wlst in Watchlists) {
+                Print(wlst.Name);
+
+            }
+        }
+
         protected override void OnTick()
         {
             Bar _null = new Bar();
@@ -405,6 +439,28 @@ namespace cAlgo.Robots
             Volume = 0;
         }
 
+        public string Report() {
+            string result = "";
+            result += string.Format("INIZIO ----------------------------------------------");
+            result += string.Format("\n ID : {0}",GetKey());
+            result += string.Format("\n Type : {0}", Type.ToString());
+            result += string.Format("\n Mode : {0}", Mode.ToString());
+            result += string.Format("\n Step : {0}", Step.ToString());
+            result += string.Format("\n Compleated : {0}", Compleated.ToString());
+            result += string.Format("\n Drawable : {0}", Drawable.ToString());
+            result += string.Format("\n Closed : {0}", Closed.ToString());
+            result += string.Format("\n Succeed : {0}", Succeed.ToString());
+            result += string.Format("\n Failed : {0}", Failed.ToString());
+            result += string.Format("\n Target1Reached : {0}", Target1Compleated.ToString());
+            result += string.Format("\n Target2Reached : {0}", Target2Compleated.ToString());
+            result += string.Format("\n XA_Period : {0}", XA_Period.ToString());
+            result += string.Format("\n AB_Period : {0}", AB_Period.ToString());
+            result += string.Format("\n BC_Period : {0}", BC_Period.ToString());
+            result += string.Format("\n CD_Period : {0}", CD_Period.ToString());
+            
+            return result;
+        }
+
         public string GetKey()
         {
             return String.Format("X{0}_", XA.FromOpenTime.ToString("dd/MM/yyyy:HHmmss"));
@@ -532,9 +588,43 @@ namespace cAlgo.Robots
             PatternList = new List<ArmonicPattern>();
             Statistics = new Statistics(bot);
         }
-        public int GetPatternCount()
-        {
+
+        public List<ArmonicPattern> Patterns() {
+            return PatternList;
+        }
+        //public int GetPatternCount(bool compleatedOnly, bool incompletedAndDrawableOnly, bool incompleatedAndInPRZ )
+        //{
+        //    int count = 0;
+        //    foreach (ArmonicPattern pattern in PatternList) {
+        //        if (compleatedOnly && !(pattern.Compleated)) continue;
+        //        if (incompletedAndDrawableOnly && !(pattern.Compleated && pattern.Drawable)) continue;
+        //        //if (incompleatedAndInPRZ && !(pattern.Compleated && pattern.PRZ.InArea())) continue;
+        //        count++;
+
+        //    }
+        //    return count;
+        //}
+        public int GetPatternCount() {
             return PatternList.Count();
+        }
+        public int GetPatternCount(bool compleatedOnly) {
+            int count = 0;
+            foreach (ArmonicPattern pattern in PatternList) {
+                if (compleatedOnly && !(pattern.Compleated)) continue;
+                count++;
+
+            }
+            return count;
+        }
+        public int GetPatternCount(bool compleatedOnly, bool drawableOnly) {
+            int count = 0;
+            foreach (ArmonicPattern pattern in PatternList) {
+                if (compleatedOnly && !(pattern.Compleated)) continue;
+                if (drawableOnly && !(pattern.Drawable)) continue;
+                
+                count++;
+            }
+            return count;
         }
 
         public int SegmentPeriod(Segment segment)
@@ -925,7 +1015,6 @@ namespace cAlgo.Robots
                                     {
                                         //B invalida la gamba XA, comporta che : dal segmento iniziale non può più nascere nessun pattern quindi interrompo la ricerca e passo al segmento successivo
                                         _stopFind = true;
-                                        //break;
                                     }
                                 }
                                 else
@@ -943,7 +1032,6 @@ namespace cAlgo.Robots
                                     {
                                         //B invalida la gamba XA, comporta che : dal segmento iniziale non può più nascere nessun pattern quindi interrompo la ricerca e passo al segmento successivo
                                         _stopFind = true;
-                                        //break;
                                     }
 
                                 }
@@ -1139,14 +1227,13 @@ namespace cAlgo.Robots
                     if (pattern.Compleated == false)
                     {
                         DeletePatternInList(pattern);
-                        break;
+                        continue;
                     }
                 }
 
                 if (pattern.Compleated && !pattern.Closed)
                 {
                     // controllo se il punto D è arrivato oltre lo StopLoss
-                    // ? in questo caso devo eliminare il pattern ?
                     if ((!initialize ? price : bar.Low) < pattern.StopLoss && pattern.Mode == PatternMode.Bullish || (!initialize ? price : bar.High) > pattern.StopLoss && pattern.Mode == PatternMode.Bearish)
                     {
                         if (!pattern.Target1Compleated)
@@ -1156,8 +1243,7 @@ namespace cAlgo.Robots
                         pattern.Closed = true;
                         //registra statistiche
                         Statistics.Add(pattern);
-                        //DeletePatternInList(pattern);
-                        break;
+                        continue;
                     }
 
                     //SE IL PREZZO E' ARRIVATO AL PRIMO TARGET ALLORA SPOSTO LO STOPLOSS IN PAREGGIO
@@ -1192,7 +1278,6 @@ namespace cAlgo.Robots
                     }
 
                     //SE IL PREZZO E' ARRIVATO AL SECONDO TARGET ALLORA CHIUDO LA POSIZIONE
-                    //? ELIMINO IL PATTERN ?
                     if ((!initialize ? price : bar.High) >= pattern.Target2 && pattern.Mode == PatternMode.Bullish || (!initialize ? price : bar.Low) <= pattern.Target2 && pattern.Mode == PatternMode.Bearish)
                     {
                         if (pattern.Enter && !pattern.Target2Compleated)
@@ -1207,13 +1292,11 @@ namespace cAlgo.Robots
                         pattern.Closed = true;
                         Statistics.Add(pattern);
 
-                        //DeletePatternInList(pattern);
-                        break;
+                        continue;
                     }
                 }
 
-                //SE SONO IN PRZ E IL PATTERN E' ANCORA DA TRADARE
-
+                //stabilisco quale prezzo utlizzare
                 if (initialize)
                 {
                     TradePrice = pattern.Mode == PatternMode.Bullish ? bar.Low : bar.High;
@@ -1222,6 +1305,8 @@ namespace cAlgo.Robots
                 {
                     TradePrice = price;
                 }
+
+                //SE SONO IN PRZ E IL PATTERN E' ANCORA DA TRADARE
                 if (pattern.PRZ.InArea(TradePrice) && !pattern.Succeed && !pattern.Failed && !pattern.Closed)
                 {
                     if (pattern.CD == null)
@@ -1274,11 +1359,11 @@ namespace cAlgo.Robots
                     //gestiso l'entrata automatica
                     if (!pattern.Enter && trigCompleated && Bot.EnterMode == EnterMode.Automatic)
                     {
-                        double euroPerUnita = pattern.StopLossPips * Bot.Symbol.PipValue;
-                        double rischioInEuro = 20;
-                        double unita = (rischioInEuro / euroPerUnita) / Bot.Symbol.LotSize;
-                        double volume = Bot.Symbol.QuantityToVolumeInUnits(unita);
-                        double volume_norm = Bot.Symbol.NormalizeVolumeInUnits(volume);
+                        //double euroPerUnita = pattern.StopLossPips * Bot.Symbol.PipValue;
+                        //double rischioInEuro = 20;
+                        //double unita = (rischioInEuro / euroPerUnita) / Bot.Symbol.LotSize;
+                        //double volume = Bot.Symbol.QuantityToVolumeInUnits(unita);
+                        //double volume_norm = Bot.Symbol.NormalizeVolumeInUnits(volume);
 
                         //TradeResult TR = Bot.ExecuteMarketOrder(pattern.Mode == PatternMode.Bullish ? TradeType.Buy : TradeType.Sell, Bot.Symbol.Name, volume_norm, pattern.GetKey());
 
@@ -1296,8 +1381,7 @@ namespace cAlgo.Robots
 
 
 
-
-                if (pattern.DrawableArea.InArea(TradePrice) || pattern.Compleated)
+                if (pattern.DrawableArea.InArea(TradePrice) || pattern.Compleated)               
                 {
                     pattern.Drawable = true;
                 }
@@ -1305,7 +1389,6 @@ namespace cAlgo.Robots
                 {
                     pattern.Drawable = false;
                 }
-
 
                 DrawPattern(pattern);
             }
@@ -1465,8 +1548,8 @@ namespace cAlgo.Robots
                 _text = string.Concat(_text, "(", SegmentPeriod(pattern.XA).ToString(), ", ");
                 _text = string.Concat(_text, SegmentPeriod(pattern.AB).ToString(), ", ");
                 _text = string.Concat(_text, SegmentPeriod(pattern.BC).ToString(), ", ");
-                _text = string.Concat(_text, SegmentPeriod(pattern.CD).ToString(), ") R/Rw : ");
-                _text = string.Concat(_text, Math.Round(pattern.RiskReward, 2).ToString(), "%  ");
+                _text = string.Concat(_text, SegmentPeriod(pattern.CD).ToString(), ")");
+                //_text = string.Concat(_text, "R/Rw : ", Math.Round(pattern.RiskReward, 2).ToString(), "%  ");
             }
             _text = _text.ToUpper();
             if (pattern.Target1Compleated == true)
