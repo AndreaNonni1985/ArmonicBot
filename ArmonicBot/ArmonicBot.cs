@@ -26,128 +26,62 @@ namespace cAlgo.Robots
         public int MicroBarsInBarForFineCalculate { get; set; }
 
         [Parameter(DefaultValue = EnterMode.Manual, Group = "Action")]
-        public EnterMode Mode { get; set; }
+        public EnterMode paramMode { get; set; }
 
-        [Parameter("Enabled", DefaultValue = EnterMode.Manual, Group = "Multi-Symbol")]
-        public bool MultiSymbolEnabled { get; set; }
-        [Parameter("Watchlist", Group = "Multi-Symbol")]
-        public String MultiSymbolWatchListName { get; set; }
+        //[Parameter("Enabled", DefaultValue = false, Group = "Multi-Symbol")]
+        //public bool MultiSymbolEnabled { get; set; }
+        //[Parameter("Watchlist", Group = "Multi-Symbol")]
+        //public String MultiSymbolWatchListName { get; set; }
 
-        [Parameter("TimeFrame", DefaultValue = 8, Group = "Multi-Symbol", Step = 1)]
-        public TimeFrame MultiSymbolTimeFrame { get; set; }
+        //[Parameter("TimeFrame", DefaultValue = 8, Group = "Multi-Symbol", Step = 1)]
+        //public TimeFrame MultiSymbolTimeFrame { get; set; }
 
-        public EnterMode EnterMode;
+        public EnterMode enterMode;
         public SegmentTracerEngine segmentTracer;
         public ArmonicFinderEngine armonicFinder;
-
-        public Button button;
-        public Panel panel;
-
+        public GUI userInterface;
+        
+        
         protected override void OnStart()
         {
-            DateTime FromDate, ToDate;
-            int MinutesFineCalc;
-            TimeFrame TFFineCalc;
             
             segmentTracer = new SegmentTracerEngine(this);
             armonicFinder = new ArmonicFinderEngine(this);
+            userInterface = new GUI(this);
+            userInterface.OnClickFind += OnFind;
 
             //Timer.Start(TimeSpan.FromMilliseconds(50));
-            button = new Button() {
-                Text = "<Nome del Pattern...>",
-                Margin = 9
-            };
-            button.Click += OnButtonClick;
-
-            panel = new StackPanel() {
-                Width = 120,
-                HorizontalAlignment = HorizontalAlignment.Left
-            };
             
-            panel.AddChild(button);
-            Chart.AddControl(panel);
             if (InitialPeriods > 0 && !IsBacktesting)
             {
                 //Disabilito l'entrata
-                EnterMode = EnterMode.None;
+                enterMode = EnterMode.None;
 
-                Bars BarsCalculate = MarketData.GetBars(TimeFrame);
-                Print("Gross Data - Load - Bar Count:{0}   From:{1}   To:{2}", BarsCalculate.Count(), BarsCalculate.First().OpenTime, BarsCalculate.Last().OpenTime);
-                while (BarsCalculate.Count() < InitialPeriods)
-                {
-                    BarsCalculate.LoadMoreHistory();
-                    Print("Gross Data - Load More History - Bar Count:{0}   From:{1}   To:{2}", BarsCalculate.Count(), BarsCalculate.First().OpenTime, BarsCalculate.Last().OpenTime);
-                }
-
-                MinutesFineCalc = TimeframeToMinutes(TimeFrame);
-                TFFineCalc = MinutesToTimeFrame(MinutesFineCalc / MicroBarsInBarForFineCalculate);
-
-                Bars BarsFineCalculate = MarketData.GetBars(TFFineCalc);
-                Print("Fine Data - Load - Bar Count:{0}   From:{1}   To:{2}", BarsFineCalculate.Count(), BarsFineCalculate.First().OpenTime, BarsFineCalculate.Last().OpenTime);
-                while (BarsFineCalculate.First().OpenTime > BarsCalculate.Last(InitialPeriods).OpenTime)
-                {
-                    String dbg = String.Format("ToReach : {0}     first {1} last{2}", BarsCalculate.Last(InitialPeriods).OpenTime, BarsFineCalculate.First().OpenTime, BarsFineCalculate.Last().OpenTime);
-                    BarsFineCalculate.LoadMoreHistory();
-                    Print("Fine Data - Load More History- Bar Count:{0}   From:{1}   To:{2}", BarsFineCalculate.Count(), BarsFineCalculate.First().OpenTime, BarsFineCalculate.Last().OpenTime);
-                }
-
-                if (BarsCalculate.Count() > InitialPeriods)
-                {
-                    for (int _index = InitialPeriods; _index > 1; _index--)
-                    {
-                        segmentTracer.Calculate(BarsCalculate.Last(_index - 1), BarsCalculate.Last(_index), false);
-                        armonicFinder.Calculate();
-                        if (_index - 2 > 0)
-                        {
-                            FromDate = BarsCalculate.Last(_index - 2).OpenTime;
-                            if (_index - 3 > 0)
-                            {
-                                ToDate = BarsCalculate.Last(_index - 3).OpenTime;
-                            }
-                            else
-                            {
-                                ToDate = Time;
-                            }
-
-                            string dbg = string.Format("{0} Nested Bars in {1} TF", BarsFineCalculate.Where(data => (data.OpenTime >= FromDate) && (data.OpenTime <= ToDate)).Count(), MicroBarsInBarForFineCalculate.ToString());
-
-                            foreach (Bar FineBar in BarsFineCalculate.Where(data => (data.OpenTime >= FromDate) && (data.OpenTime <= ToDate)))
-                            {
-                                armonicFinder.FineCalculate(true, 0, FineBar, BarsCalculate.Last(_index - 2).OpenTime);
-                            }
-                        }
-                    }
-                }
+                // cerco i pattern
+                SniffForPatterns();
 
                 //Riabilito l'entrata
-                EnterMode = Mode;
+                enterMode = paramMode;
 
-                //stampo le statistiche
-                armonicFinder.Statistics.Print();
+                ////stampo le statistiche
+                //armonicFinder.Statistics.Print();
 
                 //stampo i timeframe utilizzati per la ricerca dei pattern 
-                string text;
-                text = string.Format("Original TimeFrame {0} , Fine TimeFrame {1} \n", TimeFrame.ToString(), TFFineCalc.ToString());
-                text += string.Format("PatternCount {0} ", armonicFinder.GetPatternCount());
-                text += string.Format("CompleatedPatternCount {0} ", armonicFinder.GetPatternCount(true));
-                text += string.Format("DrawablePatternCount {0} ", armonicFinder.GetPatternCount(false,true ));
+                //string text;
+                //text = string.Format("Original TimeFrame {0} , Fine TimeFrame {1} \n", TimeFrame.ToString(), TFFineCalc.ToString());
+                //text += string.Format("PatternCount {0} ", armonicFinder.GetPatternCount());
+                //text += string.Format("CompleatedPatternCount {0} ", armonicFinder.GetPatternCount(true));
+                //text += string.Format("DrawablePatternCount {0} ", armonicFinder.GetPatternCount(false, true));
 
-                Chart.DrawStaticText("TIMEFRAME", text, VerticalAlignment.Bottom, HorizontalAlignment.Right, Color.Brown);
+                //Chart.DrawStaticText("TIMEFRAME", text, VerticalAlignment.Bottom, HorizontalAlignment.Right, Color.Brown);
 
+
+                //Effettuo un refresh
                 Bar _null = new Bar();
                 armonicFinder.FineCalculate(false, Bid, _null, Bars.Last(0).OpenTime);
             }
 
-
         }
-
-        private void OnButtonClick(ButtonClickEventArgs obj) {
-            foreach(Watchlist wlst in Watchlists) {
-                Print(wlst.Name);
-
-            }
-        }
-
         protected override void OnTick()
         {
             Bar _null = new Bar();
@@ -169,6 +103,11 @@ namespace cAlgo.Robots
 
 
         }
+        public void OnFind() {
+            SniffForPatterns();
+        }
+
+
         private TimeFrame MinutesToTimeFrame(int Minutes)
         {
             //return TimeFrame.Daily;
@@ -291,6 +230,78 @@ namespace cAlgo.Robots
 
             return 0;
 
+        }
+        private void SniffForPatterns() {
+            DateTime FromDate, ToDate;
+            int MinutesFineCalc;
+            TimeFrame TFFineCalc;
+
+            Bars BarsCalculate = MarketData.GetBars(TimeFrame);
+            Print("Gross Data - Load - Bar Count:{0}   From:{1}   To:{2}", BarsCalculate.Count(), BarsCalculate.First().OpenTime, BarsCalculate.Last().OpenTime);
+            while (BarsCalculate.Count() < InitialPeriods) {
+                BarsCalculate.LoadMoreHistory();
+                Print("Gross Data - Load More History - Bar Count:{0}   From:{1}   To:{2}", BarsCalculate.Count(), BarsCalculate.First().OpenTime, BarsCalculate.Last().OpenTime);
+            }
+
+            MinutesFineCalc = TimeframeToMinutes(TimeFrame);
+            TFFineCalc = MinutesToTimeFrame(MinutesFineCalc / MicroBarsInBarForFineCalculate);
+
+            Bars BarsFineCalculate = MarketData.GetBars(TFFineCalc);
+            Print("Fine Data - Load - Bar Count:{0}   From:{1}   To:{2}", BarsFineCalculate.Count(), BarsFineCalculate.First().OpenTime, BarsFineCalculate.Last().OpenTime);
+            while (BarsFineCalculate.First().OpenTime > BarsCalculate.Last(InitialPeriods).OpenTime) {
+                String dbg = String.Format("ToReach : {0}     first {1} last{2}", BarsCalculate.Last(InitialPeriods).OpenTime, BarsFineCalculate.First().OpenTime, BarsFineCalculate.Last().OpenTime);
+                BarsFineCalculate.LoadMoreHistory();
+                Print("Fine Data - Load More History- Bar Count:{0}   From:{1}   To:{2}", BarsFineCalculate.Count(), BarsFineCalculate.First().OpenTime, BarsFineCalculate.Last().OpenTime);
+            }
+
+            if (BarsCalculate.Count() > InitialPeriods) {
+                for (int _index = InitialPeriods; _index > 1; _index--) {
+                    segmentTracer.Calculate(BarsCalculate.Last(_index - 1), BarsCalculate.Last(_index), false);
+                    armonicFinder.Calculate();
+                    if (_index - 2 > 0) {
+                        FromDate = BarsCalculate.Last(_index - 2).OpenTime;
+                        if (_index - 3 > 0) {
+                            ToDate = BarsCalculate.Last(_index - 3).OpenTime;
+                        }
+                        else {
+                            ToDate = Time;
+                        }
+
+                        string dbg = string.Format("{0} Nested Bars in {1} TF", BarsFineCalculate.Where(data => (data.OpenTime >= FromDate) && (data.OpenTime <= ToDate)).Count(), MicroBarsInBarForFineCalculate.ToString());
+
+                        foreach (Bar FineBar in BarsFineCalculate.Where(data => (data.OpenTime >= FromDate) && (data.OpenTime <= ToDate))) {
+                            armonicFinder.FineCalculate(true, 0, FineBar, BarsCalculate.Last(_index - 2).OpenTime);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    public class GUI {
+        public ArmonicBot Bot;
+        public Button button;
+        public Panel panel;
+
+        public event Action OnClickFind;
+        public GUI(ArmonicBot bot) {
+            Bot = bot;
+            button = new Button {
+                Text = "Cerca",
+                Margin = 9
+            };
+            button.Click += OnButtonClick;
+
+            panel = new StackPanel {
+                Width = 120,
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+
+            panel.AddChild(button);
+            Bot.Chart.AddControl(panel);
+        }
+
+        private void OnButtonClick(ButtonClickEventArgs obj) {
+            OnClickFind.Invoke();
         }
     }
     public class ArmonicPattern
@@ -439,10 +450,12 @@ namespace cAlgo.Robots
             Volume = 0;
         }
 
-        public string Report() {
+
+        public string Report()
+        {
             string result = "";
             result += string.Format("INIZIO ----------------------------------------------");
-            result += string.Format("\n ID : {0}",GetKey());
+            result += string.Format("\n ID : {0}", GetKey());
             result += string.Format("\n Type : {0}", Type.ToString());
             result += string.Format("\n Mode : {0}", Mode.ToString());
             result += string.Format("\n Step : {0}", Step.ToString());
@@ -457,16 +470,13 @@ namespace cAlgo.Robots
             result += string.Format("\n AB_Period : {0}", AB_Period.ToString());
             result += string.Format("\n BC_Period : {0}", BC_Period.ToString());
             result += string.Format("\n CD_Period : {0}", CD_Period.ToString());
-            
+
             return result;
         }
-
         public string GetKey()
         {
             return String.Format("X{0}_", XA.FromOpenTime.ToString("dd/MM/yyyy:HHmmss"));
         }
-
-
     }
     public class Statistics
     {
@@ -589,7 +599,8 @@ namespace cAlgo.Robots
             Statistics = new Statistics(bot);
         }
 
-        public List<ArmonicPattern> Patterns() {
+        public List<ArmonicPattern> Patterns()
+        {
             return PatternList;
         }
         //public int GetPatternCount(bool compleatedOnly, bool incompletedAndDrawableOnly, bool incompleatedAndInPRZ )
@@ -604,29 +615,36 @@ namespace cAlgo.Robots
         //    }
         //    return count;
         //}
-        public int GetPatternCount() {
+        public int GetPatternCount()
+        {
             return PatternList.Count();
         }
-        public int GetPatternCount(bool compleatedOnly) {
+        public int GetPatternCount(bool compleatedOnly)
+        {
             int count = 0;
-            foreach (ArmonicPattern pattern in PatternList) {
-                if (compleatedOnly && !(pattern.Compleated)) continue;
+            foreach (ArmonicPattern pattern in PatternList)
+            {
+                if (compleatedOnly && !(pattern.Compleated))
+                    continue;
                 count++;
 
             }
             return count;
         }
-        public int GetPatternCount(bool compleatedOnly, bool drawableOnly) {
+        public int GetPatternCount(bool compleatedOnly, bool drawableOnly)
+        {
             int count = 0;
-            foreach (ArmonicPattern pattern in PatternList) {
-                if (compleatedOnly && !(pattern.Compleated)) continue;
-                if (drawableOnly && !(pattern.Drawable)) continue;
-                
+            foreach (ArmonicPattern pattern in PatternList)
+            {
+                if (compleatedOnly && !(pattern.Compleated))
+                    continue;
+                if (drawableOnly && !(pattern.Drawable))
+                    continue;
+
                 count++;
             }
             return count;
         }
-
         public int SegmentPeriod(Segment segment)
         {
             int _retValue;
@@ -682,7 +700,6 @@ namespace cAlgo.Robots
                 return true;
             }
         }
-
         public bool VerifyAndUpdateBC(ArmonicPattern pattern, Segment BC)
         {
             double _valueABBC;
@@ -809,8 +826,6 @@ namespace cAlgo.Robots
                 }
             }
         }
-
-
         public bool B_InRange(double retracementValue)
         {
             if ((retracementValue >= 0.5 && retracementValue < 0.618) || (retracementValue >= 0.618 && retracementValue < 0.786) || (retracementValue >= 0.382 && retracementValue < 0.618) || (retracementValue >= 0.786 && retracementValue < 1))
@@ -850,7 +865,6 @@ namespace cAlgo.Robots
             return _type;
 
         }
-
         public void RecordPatternInList(ArmonicPattern pattern)
         {
             //controllo se ho già registrato questo pattern
@@ -895,7 +909,6 @@ namespace cAlgo.Robots
             }
 
         }
-
         public void Calculate()
         {
             int _dimensionArea;
@@ -1210,7 +1223,6 @@ namespace cAlgo.Robots
                 DrawPattern(PatternList[_index]);
             }
         }
-
         public void FineCalculate(bool initialize, double price, Bar bar, DateTime openTime)
         {
             ArmonicPattern pattern;
@@ -1357,7 +1369,7 @@ namespace cAlgo.Robots
 
 
                     //gestiso l'entrata automatica
-                    if (!pattern.Enter && trigCompleated && Bot.EnterMode == EnterMode.Automatic)
+                    if (!pattern.Enter && trigCompleated && Bot.enterMode == EnterMode.Automatic)
                     {
                         //double euroPerUnita = pattern.StopLossPips * Bot.Symbol.PipValue;
                         //double rischioInEuro = 20;
@@ -1381,7 +1393,7 @@ namespace cAlgo.Robots
 
 
 
-                if (pattern.DrawableArea.InArea(TradePrice) || pattern.Compleated)               
+                if (pattern.DrawableArea.InArea(TradePrice) || pattern.Compleated)
                 {
                     pattern.Drawable = true;
                 }
@@ -1393,7 +1405,6 @@ namespace cAlgo.Robots
                 DrawPattern(pattern);
             }
         }
-
         public void DrawPattern(ArmonicPattern pattern)
         {
             int _thickness = 2;
@@ -1615,10 +1626,8 @@ namespace cAlgo.Robots
     public class SegmentTracerEngine
     {
         private readonly ArmonicBot Bot;
-
         private Direction Direction = Direction.NoDirection;
         private Segment Segment;
-
         public List<Segment> SegmentList;
         private bool _firstBarEvent = true;
 
@@ -1756,7 +1765,6 @@ namespace cAlgo.Robots
             }
 
         }
-
         public void DrawSegment()
         {
             if (Bot.DrawSwing)
@@ -1773,7 +1781,6 @@ namespace cAlgo.Robots
                 Bot.Chart.RemoveObject(_name);
             }
         }
-
     }
     public class Segment
     {
@@ -1813,7 +1820,6 @@ namespace cAlgo.Robots
         {
             return Direction == Direction.Up ? ToPrice - FromPrice : FromPrice - ToPrice;
         }
-
         public void Update(Bar endBar)
         {
             UpdatePrice(endBar);
@@ -1870,7 +1876,6 @@ namespace cAlgo.Robots
             }
 
         }
-
         public bool AboveArea(double price)
         {
             if (FromPrice < ToPrice && price > ToPrice)
@@ -1886,7 +1891,6 @@ namespace cAlgo.Robots
                 return false;
             }
         }
-
         public bool BelowArea(double price)
         {
             if (FromPrice < ToPrice && price < FromPrice)
