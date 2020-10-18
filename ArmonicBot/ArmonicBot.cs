@@ -8,107 +8,12 @@ using cAlgo.API.Indicators;
 using cAlgo.API.Internals;
 using cAlgo.Indicators;
 
-namespace cAlgo.Robots
+
+namespace cAlgo
 {
-    [Robot(TimeZone = TimeZones.UTC, AccessRights = AccessRights.None)]
-    public class ArmonicBot : Robot
+    public static class Utils
     {
-        [Parameter(DefaultValue = 120, Group = "Scanner", MinValue = 10, MaxValue = 200, Step = 1)]
-        public int MaxPatternPeriods { get; set; }
-
-        [Parameter(DefaultValue = 120, Group = "Scanner", MinValue = 0, MaxValue = 500, Step = 1)]
-        public int InitialPeriods { get; set; }
-
-        [Parameter(DefaultValue = false, Group = "Scanner")]
-        public bool DrawSwing { get; set; }
-
-        [Parameter("MicroBars", DefaultValue = 96, Group = "Scanner", MinValue = 96, MaxValue = 192, Step = 1)]
-        public int MicroBarsInBarForFineCalculate { get; set; }
-
-        [Parameter(DefaultValue = EnterMode.Manual, Group = "Action")]
-        public EnterMode paramMode { get; set; }
-
-        //[Parameter("Enabled", DefaultValue = false, Group = "Multi-Symbol")]
-        //public bool MultiSymbolEnabled { get; set; }
-        //[Parameter("Watchlist", Group = "Multi-Symbol")]
-        //public String MultiSymbolWatchListName { get; set; }
-
-        //[Parameter("TimeFrame", DefaultValue = 8, Group = "Multi-Symbol", Step = 1)]
-        //public TimeFrame MultiSymbolTimeFrame { get; set; }
-
-        public EnterMode enterMode;
-        public SegmentTracerEngine segmentTracer;
-        public ArmonicFinderEngine armonicFinder;
-        public GUI userInterface;
-        
-        
-        protected override void OnStart()
-        {
-            
-            segmentTracer = new SegmentTracerEngine(this);
-            armonicFinder = new ArmonicFinderEngine(this);
-            userInterface = new GUI(this);
-            userInterface.OnClickFind += OnFind;
-
-            //Timer.Start(TimeSpan.FromMilliseconds(50));
-            
-            if (InitialPeriods > 0 && !IsBacktesting)
-            {
-                //Disabilito l'entrata
-                enterMode = EnterMode.None;
-
-                // cerco i pattern
-                SniffForPatterns();
-
-                //Riabilito l'entrata
-                enterMode = paramMode;
-
-                ////stampo le statistiche
-                //armonicFinder.Statistics.Print();
-
-                //stampo i timeframe utilizzati per la ricerca dei pattern 
-                //string text;
-                //text = string.Format("Original TimeFrame {0} , Fine TimeFrame {1} \n", TimeFrame.ToString(), TFFineCalc.ToString());
-                //text += string.Format("PatternCount {0} ", armonicFinder.GetPatternCount());
-                //text += string.Format("CompleatedPatternCount {0} ", armonicFinder.GetPatternCount(true));
-                //text += string.Format("DrawablePatternCount {0} ", armonicFinder.GetPatternCount(false, true));
-
-                //Chart.DrawStaticText("TIMEFRAME", text, VerticalAlignment.Bottom, HorizontalAlignment.Right, Color.Brown);
-
-
-                //Effettuo un refresh
-                Bar _null = new Bar();
-                armonicFinder.FineCalculate(false, Bid, _null, Bars.Last(0).OpenTime);
-            }
-
-        }
-        protected override void OnTick()
-        {
-            Bar _null = new Bar();
-            armonicFinder.FineCalculate(false, Bid, _null, Bars.Last(0).OpenTime);
-            armonicFinder.Statistics.Print();
-        }
-        protected override void OnBar()
-        {
-            segmentTracer.Calculate(Bars.Last(1), Bars.Last(2), true);
-            armonicFinder.Calculate();
-        }
-        protected override void OnStop()
-        {
-
-        }
-        protected override void OnTimer()
-        {
-            base.OnTimer();
-
-
-        }
-        public void OnFind() {
-            SniffForPatterns();
-        }
-
-
-        private TimeFrame MinutesToTimeFrame(int Minutes)
+        public static TimeFrame MinutesToTimeFrame(int Minutes)
         {
             //return TimeFrame.Daily;
 
@@ -172,7 +77,7 @@ namespace cAlgo.Robots
 
             return TimeFrame.Daily;
         }
-        private int TimeframeToMinutes(TimeFrame MyCandle)
+        public static int TimeframeToMinutes(TimeFrame MyCandle)
         {
 
             if (MyCandle == TimeFrame.Daily)
@@ -231,67 +136,281 @@ namespace cAlgo.Robots
             return 0;
 
         }
-        private void SniffForPatterns() {
+    }
+}
+
+namespace cAlgo.Robots
+{
+    [Robot(TimeZone = TimeZones.UTC, AccessRights = AccessRights.None)]
+    public class ArmonicBot : Robot
+    {
+        [Parameter(DefaultValue = 120, Group = "Scanner", MinValue = 10, MaxValue = 200, Step = 1)]
+        public int MaxPatternPeriods { get; set; }
+
+        [Parameter(DefaultValue = 120, Group = "Scanner", MinValue = 0, MaxValue = 500, Step = 1)]
+        public int InitialPeriods { get; set; }
+
+        [Parameter(DefaultValue = false, Group = "Scanner")]
+        public bool DrawSwing { get; set; }
+
+        [Parameter("MicroBars", DefaultValue = 96, Group = "Scanner", MinValue = 96, MaxValue = 192, Step = 1)]
+        public int MicroBarsInBarForFineCalculate { get; set; }
+
+        [Parameter(DefaultValue = EnterMode.Manual, Group = "Action")]
+        public EnterMode ParamMode { get; set; }
+
+        //[Parameter("Enabled", DefaultValue = false, Group = "Multi-Symbol")]
+        //public bool MultiSymbolEnabled { get; set; }
+        //[Parameter("Watchlist", Group = "Multi-Symbol")]
+        //public String MultiSymbolWatchListName { get; set; }
+
+        //[Parameter("TimeFrame", DefaultValue = 8, Group = "Multi-Symbol", Step = 1)]
+        //public TimeFrame MultiSymbolTimeFrame { get; set; }
+
+        public EnterMode enterMode;
+        public SegmentTracerEngine segmentTracer;
+        public ArmonicFinderEngine armonicFinder;
+        public GUI userInterface;
+        public DataFlow testFlow;
+        protected override void OnStart()
+        {
+            testFlow = new DataFlow(MarketData, Symbol, TimeFrame, 99999, true);
+            testFlow.On_AsyncBarsLoaded += OnDataLoading;
+            testFlow.On_AsyncTerminateBarsLoading += OnDataLoaded;
+
+            segmentTracer = new SegmentTracerEngine(this);
+            armonicFinder = new ArmonicFinderEngine(this, Symbol, TimeFrame);
+            userInterface = new GUI(this);
+            userInterface.OnClickFind += OnFind;
+
+
+            //Timer.Start(TimeSpan.FromMilliseconds(50));
+
+            if (InitialPeriods > 0 && !IsBacktesting)
+            {
+                //Disabilito l'entrata
+                enterMode = EnterMode.None;
+
+                //Cerco i pattern
+                SniffPatterns(Symbol, TimeFrame);
+
+                //Riabilito l'entrata
+                enterMode = ParamMode;
+            }
+        }
+        protected override void OnTick()
+        {
+            Bar _null = new Bar();
+            armonicFinder.FineCalculate(false, Bid, _null, Bars.Last(0).OpenTime);
+            //armonicFinder.Statistics.Print();
+        }
+        protected override void OnBar()
+        {
+            segmentTracer.Calculate(Bars.Last(1), Bars.Last(2), true);
+            armonicFinder.Calculate();
+        }
+        protected override void OnStop()
+        {
+
+        }
+        protected override void OnTimer()
+        {
+            base.OnTimer();
+
+
+        }
+        protected void OnFind()
+        {
+            SniffPatterns(Symbol, TimeFrame);
+        }
+
+        protected void OnDataLoading(double percentage)
+        {
+            Print("Loading Bars : {0}%", percentage);
+        }
+        protected void OnDataLoaded()
+        {
+            Print("Bars Loaded");
+        }
+
+        private void SniffPatterns(Symbol RequestSymbol, TimeFrame RequestTimeFrame)
+        {
             DateTime FromDate, ToDate;
             int MinutesFineCalc;
             TimeFrame TFFineCalc;
 
-            Bars BarsCalculate = MarketData.GetBars(TimeFrame);
+            Bars BarsCalculate = MarketData.GetBars(RequestTimeFrame);
             Print("Gross Data - Load - Bar Count:{0}   From:{1}   To:{2}", BarsCalculate.Count(), BarsCalculate.First().OpenTime, BarsCalculate.Last().OpenTime);
-            while (BarsCalculate.Count() < InitialPeriods) {
+            while (BarsCalculate.Count() < InitialPeriods)
+            {
                 BarsCalculate.LoadMoreHistory();
                 Print("Gross Data - Load More History - Bar Count:{0}   From:{1}   To:{2}", BarsCalculate.Count(), BarsCalculate.First().OpenTime, BarsCalculate.Last().OpenTime);
             }
 
-            MinutesFineCalc = TimeframeToMinutes(TimeFrame);
-            TFFineCalc = MinutesToTimeFrame(MinutesFineCalc / MicroBarsInBarForFineCalculate);
+            MinutesFineCalc = Utils.TimeframeToMinutes(RequestTimeFrame);
+            TFFineCalc = Utils.MinutesToTimeFrame(MinutesFineCalc / MicroBarsInBarForFineCalculate);
 
             Bars BarsFineCalculate = MarketData.GetBars(TFFineCalc);
             Print("Fine Data - Load - Bar Count:{0}   From:{1}   To:{2}", BarsFineCalculate.Count(), BarsFineCalculate.First().OpenTime, BarsFineCalculate.Last().OpenTime);
-            while (BarsFineCalculate.First().OpenTime > BarsCalculate.Last(InitialPeriods).OpenTime) {
+            while (BarsFineCalculate.First().OpenTime > BarsCalculate.Last(InitialPeriods).OpenTime)
+            {
                 String dbg = String.Format("ToReach : {0}     first {1} last{2}", BarsCalculate.Last(InitialPeriods).OpenTime, BarsFineCalculate.First().OpenTime, BarsFineCalculate.Last().OpenTime);
                 BarsFineCalculate.LoadMoreHistory();
                 Print("Fine Data - Load More History- Bar Count:{0}   From:{1}   To:{2}", BarsFineCalculate.Count(), BarsFineCalculate.First().OpenTime, BarsFineCalculate.Last().OpenTime);
             }
 
-            if (BarsCalculate.Count() > InitialPeriods) {
-                for (int _index = InitialPeriods; _index > 1; _index--) {
+            if (BarsCalculate.Count() > InitialPeriods)
+            {
+                for (int _index = InitialPeriods; _index > 1; _index--)
+                {
                     segmentTracer.Calculate(BarsCalculate.Last(_index - 1), BarsCalculate.Last(_index), false);
                     armonicFinder.Calculate();
-                    if (_index - 2 > 0) {
+                    if (_index - 2 > 0)
+                    {
                         FromDate = BarsCalculate.Last(_index - 2).OpenTime;
-                        if (_index - 3 > 0) {
+                        if (_index - 3 > 0)
+                        {
                             ToDate = BarsCalculate.Last(_index - 3).OpenTime;
                         }
-                        else {
+                        else
+                        {
                             ToDate = Time;
                         }
 
                         string dbg = string.Format("{0} Nested Bars in {1} TF", BarsFineCalculate.Where(data => (data.OpenTime >= FromDate) && (data.OpenTime <= ToDate)).Count(), MicroBarsInBarForFineCalculate.ToString());
 
-                        foreach (Bar FineBar in BarsFineCalculate.Where(data => (data.OpenTime >= FromDate) && (data.OpenTime <= ToDate))) {
+                        foreach (Bar FineBar in BarsFineCalculate.Where(data => (data.OpenTime >= FromDate) && (data.OpenTime <= ToDate)))
+                        {
                             armonicFinder.FineCalculate(true, 0, FineBar, BarsCalculate.Last(_index - 2).OpenTime);
                         }
                     }
                 }
+                Bar _null = new Bar();
+                armonicFinder.FineCalculate(false, RequestSymbol.Bid, _null, BarsCalculate.Last(0).OpenTime);
+
             }
         }
     }
-    public class GUI {
+    public class DataFlow
+    {
+        public Bars BarsData;
+        public Ticks TicksData;
+
+        private int _periods;
+        private MarketData _marketdata;
+        private Symbol _symbol;
+        private TimeFrame _timeframe;
+
+        public double AsyncBarsLoadingPercentage { get; private set; }
+        public double AsyncTicksLoadingPercentage { get; private set; }
+
+
+        public event Action<BarOpenedEventArgs> On_NewBar;
+        public event Action<TicksTickEventArgs> On_NewTick;
+        public event Action On_AsyncTerminateBarsLoading;
+        public event Action<double> On_AsyncBarsLoaded;
+        //public event Action On_AsyncBarsLoaded;
+        //public event Action On_AsyncBarsLoaded;
+        public DataFlow(MarketData marketdata, Symbol symbol, TimeFrame timeframe, int periods, bool __async = false)
+        {
+            _marketdata = marketdata;
+            _periods = periods;
+            _symbol = symbol;
+            _timeframe = timeframe;
+            if (!__async)
+            {
+                //Richiedo i dati delle barre in maniera sincrona
+                BarsData = marketdata.GetBars(timeframe, symbol.Name);
+                BarsData.BarOpened += args => On_NewBar.Invoke(args);
+                while (BarsData.Count < periods)
+                {
+                    BarsData.LoadMoreHistory();
+                }
+                //Richiedo i dati dei tick in maniera sincrona
+                TicksData = marketdata.GetTicks(symbol.Name);
+                TicksData.Tick += args => On_NewTick.Invoke(args);
+                //BarsData.BarOpened += NewBar;
+                //TicksData.Tick += NewTick;
+            }
+            else
+            {
+                AsyncLoading(true);
+            }
+        }
+        private void AsyncLoading(bool first = false)
+        {
+            if (first)
+            {
+                //richiedo i dati
+                _marketdata.GetBarsAsync(_timeframe, _symbol.Name, LoadData => AsyncEndBarsLoaded(LoadData));
+            }
+            else
+            {
+                //calcolo la percentuale dei dati caricati fino ad ora
+                AsyncBarsLoadingPercentage = BarsData.Count >= _periods ? 100 : Math.Round(Convert.ToDouble(BarsData.Count * 100) / _periods, 2);
+                Action<double> hndlLoad = On_AsyncBarsLoaded;
+                hndlLoad(AsyncBarsLoadingPercentage);
+
+                if (BarsData.Count < _periods)
+                {
+                    //continuo a richiedere dati
+                    BarsData.LoadMoreHistoryAsync(AsyncEndMoreBarsLoaded);
+                }
+                else
+                {
+                    //segnalo il completamento
+                    Action hndlTerminate = On_AsyncTerminateBarsLoading;
+                    hndlTerminate();
+                }
+            }
+        }
+        
+        //private void NewBar(BarOpenedEventArgs obj)
+        //{
+        //    On_NewBar.Invoke(obj);
+        //}
+        //private void NewTick(TicksTickEventArgs obj)
+        //{
+        //    On_NewTick.Invoke(obj);
+        //}
+
+        private void AsyncEndBarsLoaded(Bars bars)
+        {
+            BarsData = bars;
+            BarsData.BarOpened += args => On_NewBar.Invoke(args);
+            AsyncLoading();
+        }
+        private void AsyncEndMoreBarsLoaded(BarsHistoryLoadedEventArgs obj)
+        {
+            if (obj.Count > 0) {
+                //aggiorno il caricamento
+                AsyncLoading();
+            } else {
+                //caso in cui non legge più nessun bar (overflow) segnalo il completamento
+                Action hndlTerminate = On_AsyncTerminateBarsLoading;
+                hndlTerminate();
+            }
+        }
+    }
+    public class GUI
+    {
         public ArmonicBot Bot;
         public Button button;
         public Panel panel;
 
         public event Action OnClickFind;
-        public GUI(ArmonicBot bot) {
+        public GUI(ArmonicBot bot)
+        {
             Bot = bot;
-            button = new Button {
+            button = new Button 
+            {
                 Text = "Cerca",
                 Margin = 9
             };
             button.Click += OnButtonClick;
 
-            panel = new StackPanel {
+            panel = new StackPanel 
+            {
                 Width = 120,
                 HorizontalAlignment = HorizontalAlignment.Left
             };
@@ -300,7 +419,8 @@ namespace cAlgo.Robots
             Bot.Chart.AddControl(panel);
         }
 
-        private void OnButtonClick(ButtonClickEventArgs obj) {
+        private void OnButtonClick(ButtonClickEventArgs obj)
+        {
             OnClickFind.Invoke();
         }
     }
@@ -592,9 +712,14 @@ namespace cAlgo.Robots
         private readonly ArmonicBot Bot;
         private readonly List<ArmonicPattern> PatternList;
         public Statistics Statistics;
-        public ArmonicFinderEngine(ArmonicBot bot)
+        private Symbol Symbol;
+        private TimeFrame TimeFrame;
+
+        public ArmonicFinderEngine(ArmonicBot bot, Symbol symbol, TimeFrame timeframe)
         {
             Bot = bot;
+            Symbol = symbol;
+            TimeFrame = timeframe;
             PatternList = new List<ArmonicPattern>();
             Statistics = new Statistics(bot);
         }
@@ -875,7 +1000,7 @@ namespace cAlgo.Robots
                 if (_pattern.GetKey() == pattern.GetKey())
                 {
                     _found = true;
-                    //effettuo l'assegnazione sole se il pattern non è copletato
+                    //effettuo l'aggiornamento solo se il pattern non è copletato
                     if (!_pattern.Compleated)
                     {
                         PatternList[_patternIndex] = pattern;
@@ -1556,10 +1681,10 @@ namespace cAlgo.Robots
 
             if (pattern.Compleated)
             {
-                _text = string.Concat(_text, "(", SegmentPeriod(pattern.XA).ToString(), ", ");
-                _text = string.Concat(_text, SegmentPeriod(pattern.AB).ToString(), ", ");
-                _text = string.Concat(_text, SegmentPeriod(pattern.BC).ToString(), ", ");
-                _text = string.Concat(_text, SegmentPeriod(pattern.CD).ToString(), ")");
+                _text = string.Concat(_text, "(", pattern.XA_Period.ToString(), ", ");
+                _text = string.Concat(_text, pattern.AB_Period.ToString(), ", ");
+                _text = string.Concat(_text, pattern.BC_Period.ToString(), ", ");
+                _text = string.Concat(_text, pattern.CD_Period.ToString(), ")");
                 //_text = string.Concat(_text, "R/Rw : ", Math.Round(pattern.RiskReward, 2).ToString(), "%  ");
             }
             _text = _text.ToUpper();
