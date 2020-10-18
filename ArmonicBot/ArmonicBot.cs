@@ -8,7 +8,6 @@ using cAlgo.API.Indicators;
 using cAlgo.API.Internals;
 using cAlgo.Indicators;
 
-
 namespace cAlgo
 {
     public static class Utils
@@ -174,16 +173,15 @@ namespace cAlgo.Robots
         public DataFlow testFlow;
         protected override void OnStart()
         {
-            testFlow = new DataFlow(MarketData, Symbol, TimeFrame, 99999, true);
+            testFlow = new DataFlow(MarketData, Symbol, TimeFrame, true, true);
+            testFlow.RequestBars(99999, true);
             testFlow.On_AsyncBarsLoaded += OnDataLoading;
             testFlow.On_AsyncTerminateBarsLoading += OnDataLoaded;
-
+            testFlow.On_NewBar += OnDataNewBar;
             segmentTracer = new SegmentTracerEngine(this);
             armonicFinder = new ArmonicFinderEngine(this, Symbol, TimeFrame);
             userInterface = new GUI(this);
             userInterface.OnClickFind += OnFind;
-
-            errore
 
             //Timer.Start(TimeSpan.FromMilliseconds(50));
 
@@ -232,6 +230,9 @@ namespace cAlgo.Robots
         protected void OnDataLoaded()
         {
             Print("Bars Loaded");
+        }
+        protected void OnDataNewBar(BarOpenedEventArgs e) {
+            Print("New Bar Opened At {0}  Incoming From Symbol {1} in TimeFrame {2}", e.Bars.Last(0).OpenTime.ToString("dd/MM/yyyy : hhMMss"), e.Bars.SymbolName, e.Bars.TimeFrame.ToString());
         }
 
         private void SniffPatterns(Symbol RequestSymbol, TimeFrame RequestTimeFrame)
@@ -297,11 +298,14 @@ namespace cAlgo.Robots
         public Bars BarsData;
         public Ticks TicksData;
 
-        private int _periods;
-        private MarketData _marketdata;
-        private Symbol _symbol;
-        private TimeFrame _timeframe;
-
+        private int _barPeriods;
+        private DateTime _ticksFromDateTime;
+        private readonly MarketData _marketdata;
+        private readonly Symbol _symbol;
+        private readonly TimeFrame _timeframe;
+        private bool _trigNewBar = false;
+        private bool _trigNewTick = false;
+        
         public double AsyncBarsLoadingPercentage { get; private set; }
         public double AsyncTicksLoadingPercentage { get; private set; }
 
@@ -312,33 +316,56 @@ namespace cAlgo.Robots
         public event Action<double> On_AsyncBarsLoaded;
         //public event Action On_AsyncBarsLoaded;
         //public event Action On_AsyncBarsLoaded;
-        public DataFlow(MarketData marketdata, Symbol symbol, TimeFrame timeframe, int periods, bool __async = false)
+        public DataFlow(MarketData marketdata, Symbol symbol, TimeFrame timeframe, bool trigNewBar = false, bool trigNewTick = false)
         {
             _marketdata = marketdata;
-            _periods = periods;
             _symbol = symbol;
             _timeframe = timeframe;
-            if (!__async)
-            {
+            _trigNewBar = trigNewBar;
+            _trigNewTick = trigNewTick;
+        }
+
+        public void RequestBars(int barPeriods , bool __async = false) {
+            _barPeriods = barPeriods;
+            if (!__async) {
                 //Richiedo i dati delle barre in maniera sincrona
-                BarsData = marketdata.GetBars(timeframe, symbol.Name);
-                BarsData.BarOpened += args => On_NewBar.Invoke(args);
-                while (BarsData.Count < periods)
-                {
+                BarsData = _marketdata.GetBars(_timeframe, _symbol.Name);
+
+                if (_trigNewBar) {
+                    BarsData.BarOpened += args => On_NewBar.Invoke(args);
+                }
+                while (BarsData.Count < _barPeriods) {
                     BarsData.LoadMoreHistory();
                 }
-                //Richiedo i dati dei tick in maniera sincrona
-                TicksData = marketdata.GetTicks(symbol.Name);
-                TicksData.Tick += args => On_NewTick.Invoke(args);
                 //BarsData.BarOpened += NewBar;
                 //TicksData.Tick += NewTick;
             }
-            else
-            {
-                AsyncLoading(true);
+            else {
+                AsyncBarsLoading(true);
             }
         }
-        private void AsyncLoading(bool first = false)
+
+        public void RequestTicks(DateTime ticksFromDateTime, bool __async = false) {
+            
+            if (!__async) {
+                //Richiedo i dati dei tick in maniera sincrona
+                TicksData = _marketdata.GetTicks(_symbol.Name);
+                if (_trigNewTick) {
+                    TicksData.Tick += args => On_NewTick.Invoke(args);
+                }
+                //BarsData.BarOpened += NewBar;
+                //TicksData.Tick += NewTick;
+            }
+            else {
+                AsyncTickLoading(true);
+            }
+        }
+
+        private void AsyncTickLoading(bool first = false) {
+
+        }
+
+        private void AsyncBarsLoading(bool first = false)
         {
             if (first)
             {
@@ -348,11 +375,11 @@ namespace cAlgo.Robots
             else
             {
                 //calcolo la percentuale dei dati caricati fino ad ora
-                AsyncBarsLoadingPercentage = BarsData.Count >= _periods ? 100 : Math.Round(Convert.ToDouble(BarsData.Count * 100) / _periods, 2);
+                AsyncBarsLoadingPercentage = BarsData.Count >= _barPeriods ? 100 : Math.Round(Convert.ToDouble(BarsData.Count * 100) / _barPeriods, 2);
                 Action<double> hndlLoad = On_AsyncBarsLoaded;
                 hndlLoad(AsyncBarsLoadingPercentage);
 
-                if (BarsData.Count < _periods)
+                if (BarsData.Count < _barPeriods)
                 {
                     //continuo a richiedere dati
                     BarsData.LoadMoreHistoryAsync(AsyncEndMoreBarsLoaded);
@@ -365,7 +392,7 @@ namespace cAlgo.Robots
                 }
             }
         }
-        
+
         //private void NewBar(BarOpenedEventArgs obj)
         //{
         //    On_NewBar.Invoke(obj);
@@ -375,17 +402,18 @@ namespace cAlgo.Robots
         //    On_NewTick.Invoke(obj);
         //}
 
-        private void AsyncEndBarsLoaded(Bars bars)
-        {
+        private void AsyncEndBarsLoaded(Bars bars) {
             BarsData = bars;
-            BarsData.BarOpened += args => On_NewBar.Invoke(args);
-            AsyncLoading();
+            if (_trigNewBar) { 
+                BarsData.BarOpened += args => On_NewBar.Invoke(args);
+            }
+            AsyncBarsLoading();
         }
         private void AsyncEndMoreBarsLoaded(BarsHistoryLoadedEventArgs obj)
         {
             if (obj.Count > 0) {
                 //aggiorno il caricamento
-                AsyncLoading();
+                AsyncBarsLoading();
             } else {
                 //caso in cui non legge più nessun bar (overflow) segnalo il completamento
                 Action hndlTerminate = On_AsyncTerminateBarsLoading;
@@ -713,8 +741,8 @@ namespace cAlgo.Robots
         private readonly ArmonicBot Bot;
         private readonly List<ArmonicPattern> PatternList;
         public Statistics Statistics;
-        private Symbol Symbol;
-        private TimeFrame TimeFrame;
+        private readonly Symbol Symbol;
+        private readonly TimeFrame TimeFrame;
 
         public ArmonicFinderEngine(ArmonicBot bot, Symbol symbol, TimeFrame timeframe)
         {
