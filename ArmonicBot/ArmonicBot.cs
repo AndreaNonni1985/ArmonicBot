@@ -183,6 +183,7 @@ namespace cAlgo.Robots
             userInterface = new GUI(this);
             userInterface.OnClickFind += OnFind;
 
+            errore
 
             //Timer.Start(TimeSpan.FromMilliseconds(50));
 
