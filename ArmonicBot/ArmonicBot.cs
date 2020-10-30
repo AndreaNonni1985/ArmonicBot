@@ -152,57 +152,34 @@ namespace cAlgo.Robots
         [Parameter("MicroBars", DefaultValue = 96, Group = "Scanner", MinValue = 96, MaxValue = 192, Step = 1)]
         public int SubPeriods { get; set; }
 
-        //[Parameter(DefaultValue = EnterMode.Manual, Group = "Action")]
-        //public EnterMode ParamMode { get; set; }
 
-        //[Parameter("Enabled", DefaultValue = false, Group = "Multi-Symbol")]
-        //public bool MultiSymbolEnabled { get; set; }
-        //[Parameter("Watchlist", Group = "Multi-Symbol")]
-        //public String MultiSymbolWatchListName { get; set; }
-
-        //[Parameter("TimeFrame", DefaultValue = 8, Group = "Multi-Symbol", Step = 1)]
-        //public TimeFrame MultiSymbolTimeFrame { get; set; }
-
-        public EnterMode enterMode;
-        //public SegmentTracerEngine segmentTracer;
         public ArmonicFinderEngine armonicFinder;
         public GUI userInterface;
+
         public DataFlow testFlow;
+        public DataFlow testFlow2;
         protected override void OnStart()
         {
-            testFlow = new DataFlow(MarketData, Symbol, TimeFrame, true, true);
-            //testFlow.RequestBars(99999, true);
-            testFlow.On_AsyncBarsLoaded += OnDataLoading;
-            testFlow.On_AsyncTerminateBarsLoading += OnDataLoaded;
-            testFlow.On_NewBar += OnDataNewBar;
-            armonicFinder = new ArmonicFinderEngine(this, MarketData, Symbol, TimeFrame, Chart, Periods, SubPeriods);
+            testFlow = new DataFlow(MarketData, Symbols.GetSymbol("EURGBP"), TimeFrame.Minute, true, true);
+            testFlow.RequestBars(99999, true,OnDataLoaded,OnDataLoading);
+            testFlow.TraceNewBar(OnOtherSymbolBar);
+
+            testFlow2 = new DataFlow(MarketData, Symbols.GetSymbol("EURJPY"), TimeFrame.Minute2, true, true);
+            testFlow2.RequestBars(99999, true, OnDataLoaded, OnDataLoading);
+            testFlow2.TraceNewBar(OnOtherSymbolBar);
+            //armonicFinder = new ArmonicFinderEngine(this, MarketData, Symbol, TimeFrame, Chart, Periods, SubPeriods);
             userInterface = new GUI(this);
             userInterface.OnClickFind += OnFind;
 
-            //Timer.Start(TimeSpan.FromMilliseconds(50));
 
-            //if (InitialPeriods > 0 && !IsBacktesting)
-            //{
-                //Disabilito l'entrata
-                //enterMode = EnterMode.None;
-
-                //Cerco i pattern
-                //SniffPatterns(Symbol, TimeFrame);
-
-                //Riabilito l'entrata
-                //enterMode = ParamMode;
-            //}
         }
         protected override void OnTick()
         {
-            //Bar _null = new Bar();
-            armonicFinder.FineCalculate(false, Bid, Bars.Last(0).OpenTime);
-            //armonicFinder.Statistics.Print();
+            //armonicFinder.FineCalculate(false, Bid, Bars.Last(0).OpenTime);
         }
         protected override void OnBar()
         {
-            //segmentTracer.Calculate(Bars.Last(1), Bars.Last(2), true);
-            armonicFinder.Calculate();
+            //armonicFinder.Calculate();
         }
         protected override void OnStop()
         {
@@ -211,14 +188,11 @@ namespace cAlgo.Robots
         protected override void OnTimer()
         {
             base.OnTimer();
-
-
         }
         protected void OnFind()
         {
-            //SniffPatterns(Symbol, TimeFrame);
-        }
 
+        }
         protected void OnDataLoading(double percentage, int count)
         {
             Print("Loading Bars : {0}% ({1} Bars) ", percentage, count);
@@ -226,73 +200,12 @@ namespace cAlgo.Robots
         protected void OnDataLoaded()
         {
             Print("Bars Loaded");
+            testFlow.TraceNewBar(OnOtherSymbolBar);
         }
-        protected void OnDataNewBar(BarOpenedEventArgs e)
+        protected void OnOtherSymbolBar(BarOpenedEventArgs e)
         {
-
             Print("New Bar Opened At {0}  Incoming From Symbol {1} in TimeFrame {2}", e.Bars.LastBar.OpenTime.ToString("dd/MM/yyyy:HHmmss"), e.Bars.SymbolName, e.Bars.TimeFrame.ToString());
         }
-
-
-
-        //private void SniffPatterns(Symbol RequestSymbol, TimeFrame RequestTimeFrame)
-        //{
-        //    DateTime FromDate, ToDate;
-        //    int MinutesFineCalc;
-        //    TimeFrame TFFineCalc;
-
-        //    Bars BarsCalculate = MarketData.GetBars(RequestTimeFrame);
-        //    Print("Gross Data - Load - Bar Count:{0}   From:{1}   To:{2}", BarsCalculate.Count(), BarsCalculate.First().OpenTime, BarsCalculate.Last().OpenTime);
-        //    while (BarsCalculate.Count() < InitialPeriods)
-        //    {
-        //        BarsCalculate.LoadMoreHistory();
-        //        Print("Gross Data - Load More History - Bar Count:{0}   From:{1}   To:{2}", BarsCalculate.Count(), BarsCalculate.First().OpenTime, BarsCalculate.Last().OpenTime);
-        //    }
-
-        //    MinutesFineCalc = Utils.TimeframeToMinutes(RequestTimeFrame);
-        //    TFFineCalc = Utils.MinutesToTimeFrame(MinutesFineCalc / SubPeriods);
-
-        //    Bars BarsFineCalculate = MarketData.GetBars(TFFineCalc);
-        //    Print("Fine Data - Load - Bar Count:{0}   From:{1}   To:{2}", BarsFineCalculate.Count(), BarsFineCalculate.First().OpenTime, BarsFineCalculate.Last().OpenTime);
-        //    while (BarsFineCalculate.First().OpenTime > BarsCalculate.Last(InitialPeriods).OpenTime)
-        //    {
-        //        String dbg = String.Format("ToReach : {0}     first {1} last{2}", BarsCalculate.Last(InitialPeriods).OpenTime, BarsFineCalculate.First().OpenTime, BarsFineCalculate.Last().OpenTime);
-        //        BarsFineCalculate.LoadMoreHistory();
-        //        Print("Fine Data - Load More History- Bar Count:{0}   From:{1}   To:{2}", BarsFineCalculate.Count(), BarsFineCalculate.First().OpenTime, BarsFineCalculate.Last().OpenTime);
-        //    }
-
-        //    if (BarsCalculate.Count() > InitialPeriods)
-        //    {
-        //        for (int _index = InitialPeriods; _index > 1; _index--)
-        //        {
-        //            //segmentTracer.Calculate(BarsCalculate.Last(_index - 1), BarsCalculate.Last(_index), false);
-        //            armonicFinder.Calculate();
-        //            if (_index - 2 > 0)
-        //            {
-        //                FromDate = BarsCalculate.Last(_index - 2).OpenTime;
-        //                if (_index - 3 > 0)
-        //                {
-        //                    ToDate = BarsCalculate.Last(_index - 3).OpenTime;
-        //                }
-        //                else
-        //                {
-        //                    ToDate = Time;
-        //                }
-
-        //                string dbg = string.Format("{0} Nested Bars in {1} TF", BarsFineCalculate.Where(data => (data.OpenTime >= FromDate) && (data.OpenTime <= ToDate)).Count(), SubPeriods.ToString());
-
-        //                foreach (Bar FineBar in BarsFineCalculate.Where(data => (data.OpenTime >= FromDate) && (data.OpenTime <= ToDate)))
-        //                {
-        //                    armonicFinder.FineCalculate(true, 0, FineBar, BarsCalculate.Last(_index - 2).OpenTime);
-        //                }
-        //            }
-        //        }
-        //        //Bar _null = new Bar();
-        //        armonicFinder.FineCalculate(false, RequestSymbol.Bid, _null, BarsCalculate.Last(0).OpenTime);
-
-        //    }
-        //}
-
     }
     public class DataFlow
     {
@@ -300,93 +213,67 @@ namespace cAlgo.Robots
         public Ticks TicksData;
         public bool isBarLoadCompleted;
         public bool isTickLoadCompleted;
-        private int _barPeriods = 0;
-        private DateTime _ticksFromDateTime;
+        private int _barRequested = 0;
+
         private readonly MarketData _marketdata;
         private readonly Symbol _symbol;
         private readonly TimeFrame _timeframe;
-        private bool _trigNewBar = false;
-        private bool _trigNewTick = false;
 
-        public double AsyncBarsLoadingPercentage { get; private set; }
-        public double AsyncTicksLoadingPercentage { get; private set; }
-        public int GetBarsRequestedCount() {
-            return _barPeriods;
+        public int GetBarsRequestedCount()
+        {
+            return _barRequested;
         }
-        public int GetBarsLoadedCount() {
-            if (BarsData != null) {
-                return BarsData.Count() > _barPeriods ? _barPeriods : BarsData.Count();
-            }else {
+        public int GetBarsLoadedCount()
+        {
+            if (BarsData != null)
+            {
+                return BarsData.Count() > _barRequested ? _barRequested : BarsData.Count();
+            }
+            else
+            {
                 return 0;
             }
         }
 
+        private event Action on_AsyncBarsLoaded;
+        private event Action<double, int> on_AsyncBarsLoading;
 
-        public event Action<BarOpenedEventArgs> On_NewBar;
-        public event Action<TicksTickEventArgs> On_NewTick;
-        public event Action On_AsyncTerminateBarsLoading;
-        public event Action<double, int> On_AsyncBarsLoaded;
-        //public event Action On_AsyncBarsLoaded;
-        //public event Action On_AsyncBarsLoaded;
         public DataFlow(MarketData marketdata, Symbol symbol, TimeFrame timeframe, bool trigNewBar = false, bool trigNewTick = false)
         {
             _marketdata = marketdata;
             _symbol = symbol;
             _timeframe = timeframe;
-            _trigNewBar = trigNewBar;
-            _trigNewTick = trigNewTick;
+            //_trigNewBar = trigNewBar;
+            //_trigNewTick = trigNewTick;
         }
 
-        public void RequestBars(int barPeriods, bool __async = false)
+        public void RequestBars(int barRequested, bool __async = false, Action listnerLoaded=null, Action<double, int> listnerLoading = null)
         {
-            _barPeriods = barPeriods;
+            _barRequested = barRequested;
             if (!__async)
             {
                 //Richiedo i dati delle barre in maniera sincrona
                 BarsData = _marketdata.GetBars(_timeframe, _symbol.Name);
-                while (BarsData.Count < _barPeriods)
+                while (BarsData.Count < _barRequested)
                 {
                     BarsData.LoadMoreHistory();
                 }
-
-                if (_trigNewBar)
-                {
-                    BarsData.BarOpened += args => On_NewBar.Invoke(args);
-                }
-                //BarsData.BarOpened += NewBar;
-                //TicksData.Tick += NewTick;
             }
             else
             {
+                //Action<double, int> hndlLoad = on_AsyncBarsLoading;
+                on_AsyncBarsLoaded += listnerLoaded;
+                on_AsyncBarsLoading += listnerLoading;
                 AsyncBarsLoading(true);
             }
         }
-
-        public void RequestTicks(DateTime ticksFromDateTime, bool __async = false)
+        public void TraceNewBar(Action<BarOpenedEventArgs> listner)
         {
-
-            if (!__async)
+            if (BarsData != null)
             {
-                //Richiedo i dati dei tick in maniera sincrona
-                TicksData = _marketdata.GetTicks(_symbol.Name);
-                if (_trigNewTick)
-                {
-                    TicksData.Tick += args => On_NewTick.Invoke(args);
-                }
-                //BarsData.BarOpened += NewBar;
-                //TicksData.Tick += NewTick;
-            }
-            else
-            {
-                AsyncTickLoading(true);
+                BarsData.BarOpened += listner;
             }
         }
-
-        private void AsyncTickLoading(bool first = false)
-        {
-
-        }
-
         private void AsyncBarsLoading(bool first = false)
         {
             if (first)
@@ -397,11 +284,11 @@ namespace cAlgo.Robots
             else
             {
                 //calcolo la percentuale dei dati caricati fino ad ora
-                AsyncBarsLoadingPercentage = BarsData.Count >= _barPeriods ? 100 : Math.Round(Convert.ToDouble(BarsData.Count * 100) / _barPeriods, 2);
-                Action<double, int> hndlLoad = On_AsyncBarsLoaded;
-                hndlLoad(AsyncBarsLoadingPercentage, BarsData.Count);
-
-                if (BarsData.Count < _barPeriods)
+                double AsyncBarsLoadingPercentage = BarsData.Count >= _barRequested ? 100 : Math.Round(Convert.ToDouble(BarsData.Count * 100) / _barRequested, 2);
+                if (on_AsyncBarsLoading != null) {
+                    on_AsyncBarsLoading.Invoke(AsyncBarsLoadingPercentage, BarsData.Count);
+                }
+                if (BarsData.Count < _barRequested)
                 {
                     //continuo a richiedere dati
                     BarsData.LoadMoreHistoryAsync(AsyncEndMoreBarsLoaded);
@@ -412,32 +299,15 @@ namespace cAlgo.Robots
                 }
             }
         }
-
-        //private void NewBar(BarOpenedEventArgs obj)
-        //{
-        //    On_NewBar.Invoke(obj);
-        //}
-        //private void NewTick(TicksTickEventArgs obj)
-        //{
-        //    On_NewTick.Invoke(obj);
-        //}
-
         private void AsyncEndBarsLoaded(Bars bars)
         {
             BarsData = bars;
-
-            //perchè lo fai qui ?!? non potresti farlo al termine del caricamento delle barre o su esplicita richeista ?
-            //if (_trigNewBar)
-            //{
-            //    BarsData.BarOpened += args => On_NewBar.Invoke(args);
-            //}
             AsyncBarsLoading();
         }
         private void AsyncEndMoreBarsLoaded(BarsHistoryLoadedEventArgs obj)
         {
             if (obj.Count > 0)
             {
-                //aggiorno il caricamento
                 AsyncBarsLoading();
             }
             else
@@ -445,17 +315,35 @@ namespace cAlgo.Robots
                 RaiseBarsLoadCompleted();
             }
         }
-
-        private void RaiseBarsLoadCompleted() {
+        private void RaiseBarsLoadCompleted()
+        {
             //segnalo il completamento
             isBarLoadCompleted = true;
-            Action hndlTerminate = On_AsyncTerminateBarsLoading;
-            hndlTerminate();
-            //attivo l'evento di nuova barra
-            if (_trigNewBar) {
-                BarsData.BarOpened += args => On_NewBar.Invoke(args);
+            if (on_AsyncBarsLoaded != null) {
+                on_AsyncBarsLoaded.Invoke();
             }
         }
+
+
+        public void RequestTicks(DateTime ticksFromDateTime, bool __async = false)
+        {
+            if (!__async)
+            {
+                //Richiedo i dati dei tick in maniera sincrona
+                TicksData = _marketdata.GetTicks(_symbol.Name);
+            }
+            else
+            {
+                AsyncTickLoading(true);
+            }
+        }
+        private void AsyncTickLoading(bool first = false)
+        {
+
+        }
+
+
+
     }
     public class GUI
     {
@@ -792,28 +680,23 @@ namespace cAlgo.Robots
             int MinutesFineCalc;
 
             Bot = bot;
-
             MaxPeriods = maxperiods;
-            PatternList = new List<ArmonicPattern>();
-            SegmentTracer = new SegmentTracerEngine(this,true);
-            Statistics = new Statistics(bot);
             Symbol = symbol;
             Chart = chart;
             MainTimeFrame = timeframe;
             MinutesFineCalc = Utils.TimeframeToMinutes(timeframe);
             PrecisionTimeFrame = Utils.MinutesToTimeFrame(MinutesFineCalc / precisionperiods);
+
+            PatternList = new List<ArmonicPattern>();
+            SegmentTracer = new SegmentTracerEngine(this, true);
+            Statistics = new Statistics(bot);
             MainData = new DataFlow(marketdata, Symbol, MainTimeFrame);
             PrecisionData = new DataFlow(marketdata, Symbol, PrecisionTimeFrame);
 
             Bot.Print("Initializing Engine for Symbol {0} {1}", Symbol.Name, MainTimeFrame.ToString());
-            MainData.RequestBars(MaxPeriods, true);
-            PrecisionData.RequestBars(MaxPeriods * precisionperiods, true);
+            MainData.RequestBars(MaxPeriods, true, OnDataLoaded, OnDataLoading);
+            PrecisionData.RequestBars(MaxPeriods * precisionperiods, true, OnDataLoaded, OnDataLoading);
             _totalBars = (MaxPeriods * precisionperiods) + MaxPeriods;
-            MainData.On_AsyncBarsLoaded += OnDataLoading;
-            MainData.On_AsyncTerminateBarsLoading += OnDataLoaded;
-            PrecisionData.On_AsyncBarsLoaded += OnDataLoading;
-            PrecisionData.On_AsyncTerminateBarsLoading += OnDataLoaded;
-            //testFlow.On_NewBar += OnDataNewBar;
         }
 
         protected void OnDataLoading(double percentage, int count)
@@ -827,23 +710,27 @@ namespace cAlgo.Robots
         }
         protected void OnDataLoaded()
         {
-            if (MainData.isBarLoadCompleted && PrecisionData.isBarLoadCompleted) {
+            if (MainData.isBarLoadCompleted && PrecisionData.isBarLoadCompleted)
+            {
                 Bot.Print("Bars Loaded");
                 _loadBarsTerminate = true;
                 LoadPatterns(Symbol, MainTimeFrame);
-                
+
             }
         }
-        //protected void OnDataNewBar(BarOpenedEventArgs e) {
+        //protected void OnOtherSymbolBar(BarOpenedEventArgs e) {
         //    Bot.Print("New Bar Opened At {0}  Incoming From Symbol {1} in TimeFrame {2}", e.Bars.LastBar.OpenTime.ToString("dd/MM/yyyy:HHmmss"), e.Bars.SymbolName, e.Bars.TimeFrame.ToString());
         //}
 
-        private void LoadPatterns(Symbol RequestSymbol, TimeFrame RequestTimeFrame) {
+        private void LoadPatterns(Symbol RequestSymbol, TimeFrame RequestTimeFrame)
+        {
             DateTime FromDate, ToDate;
             int _index = 0;
-            if (_loadBarsTerminate && MainData.BarsData.Count() >= MaxPeriods) {
+            if (_loadBarsTerminate && MainData.BarsData.Count() >= MaxPeriods)
+            {
                 //creo la segmentazione
-                for (_index = MaxPeriods; _index > 1; _index--) {
+                for (_index = MaxPeriods; _index > 1; _index--)
+                {
                     SegmentTracer.Calculate(MainData.BarsData.Last(_index - 1), MainData.BarsData.Last(_index), false);
                 }
 
@@ -855,10 +742,12 @@ namespace cAlgo.Robots
                 //questo controllo dovrebbe essere fatto per singolo pattern a partire dal punto "C" fino alla fine
                 //va passata alla funzione un parametro opzionale in più che sarebbe la chiave del patter corrente
                 //dentro alla funzione va filtrata questa condizione
-                for (_index = 0; _index < PatternList.Count(); _index++) {  
+                for (_index = 0; _index < PatternList.Count(); _index++)
+                {
                     FromDate = PatternList[_index].BC.ToOpenTime;
                     ToDate = ToDate = Bot.Time;
-                    foreach (Bar FineBar in PrecisionData.BarsData.Where(data => (data.OpenTime >= FromDate) && (data.OpenTime <= ToDate))) {
+                    foreach (Bar FineBar in PrecisionData.BarsData.Where(data => (data.OpenTime >= FromDate) && (data.OpenTime <= ToDate)))
+                    {
                         FineCalculate(true, 0, FineBar.OpenTime, PatternList[_index], FineBar);
                     }
                 }
@@ -872,11 +761,12 @@ namespace cAlgo.Robots
 
             if (_loadBarsTerminate && MainData.BarsData.Count() >= MaxPeriods)
             {
-                for (int _index = MaxPeriods; _index > 1; _index--) {
+                for (int _index = MaxPeriods; _index > 1; _index--)
+                {
                     SegmentTracer.Calculate(MainData.BarsData.Last(_index - 1), MainData.BarsData.Last(_index), false);
-                //}
+                    //}
 
-                //for (int _index = MaxPeriods; _index > 1; _index--) {
+                    //for (int _index = MaxPeriods; _index > 1; _index--) {
                     Calculate();
                     if (_index - 2 > 0)
                     {
@@ -1538,8 +1428,10 @@ namespace cAlgo.Robots
             {
                 //se viene passato il filtor per un solo pattern controllo ed eventualmente passo al prossimo
                 pattern = PatternList[_index];
-                if (justThisPattern != null ) {
-                    if (justThisPattern.GetKey() != pattern.GetKey()) {
+                if (justThisPattern != null)
+                {
+                    if (justThisPattern.GetKey() != pattern.GetKey())
+                    {
                         continue;
                     }
                 }
@@ -2077,7 +1969,8 @@ namespace cAlgo.Robots
         }
         public void DrawSegment()
         {
-            if (_drawSwing) {
+            if (_drawSwing)
+            {
                 string _name = String.Format("Segment_{0} ", Segment.FromOpenTime.ToString("dd/MM/yyyy:HHmmss"));
                 Engine.Chart.DrawTrendLine(_name, Segment.FromOpenTime, Segment.FromPrice, Segment.ToOpenTime, Segment.ToPrice, Color.Yellow, 1, LineStyle.Dots);
 
@@ -2087,7 +1980,8 @@ namespace cAlgo.Robots
         }
         public void DeleteDrawSegment(Segment SegmentToDelete)
         {
-            if (_drawSwing) {
+            if (_drawSwing)
+            {
                 string _name = String.Format("Segment_{0} ", SegmentToDelete.FromOpenTime.ToString("dd/MM/yyyy:HHmmss"));
                 Engine.Chart.RemoveObject(_name);
             }
