@@ -136,6 +136,28 @@ namespace cAlgo
 
         }
     }
+    public static class Debug
+    {
+        public static Algo sender;
+        public static void Print(object value)
+        {
+            sender.Print(value);
+        }
+        public static void Print(params object[] parameters)
+        {
+            sender.Print(parameters);
+        }
+        public static void Print(string message, params object[] parameters)
+        {
+            sender.Print(message, parameters);
+        }
+    }
+    public static class EngineParemeter
+    {
+        public static int Periods;
+        public static int SubPeriods;
+        public static bool DrawSwing;
+    }
 }
 
 namespace cAlgo.Robots
@@ -143,6 +165,7 @@ namespace cAlgo.Robots
     [Robot(TimeZone = TimeZones.UTC, AccessRights = AccessRights.None)]
     public class ArmonicBot : Robot
     {
+
         [Parameter(DefaultValue = 120, Group = "Scanner", MinValue = 10, MaxValue = 200, Step = 1)]
         public int Periods { get; set; }
 
@@ -152,7 +175,6 @@ namespace cAlgo.Robots
         [Parameter("MicroBars", DefaultValue = 96, Group = "Scanner", MinValue = 96, MaxValue = 192, Step = 1)]
         public int SubPeriods { get; set; }
 
-
         public ArmonicFinderEngine armonicFinder;
         public GUI userInterface;
 
@@ -160,14 +182,22 @@ namespace cAlgo.Robots
         public DataFlow testFlow2;
         protected override void OnStart()
         {
-            testFlow = new DataFlow(MarketData, Symbols.GetSymbol("EURGBP"), TimeFrame.Minute, true, true);
-            testFlow.RequestBars(99999, true,OnDataLoaded,OnDataLoading);
-            testFlow.TraceNewBar(OnOtherSymbolBar);
+            Debug.sender = this;
 
-            testFlow2 = new DataFlow(MarketData, Symbols.GetSymbol("EURJPY"), TimeFrame.Minute2, true, true);
+            EngineParemeter.DrawSwing = DrawSwing;
+            EngineParemeter.SubPeriods = SubPeriods;
+            EngineParemeter.Periods = Periods;
+
+            testFlow = new DataFlow(MarketData, Symbols.GetSymbol("EURGBP"), TimeFrame.Minute);
+            testFlow.RequestBars(99999, true, OnDataLoaded, OnDataLoading);
+
+            testFlow2 = new DataFlow(MarketData, Symbols.GetSymbol("EURJPY"), TimeFrame.Minute2);
             testFlow2.RequestBars(99999, true, OnDataLoaded, OnDataLoading);
-            testFlow2.TraceNewBar(OnOtherSymbolBar);
-            //armonicFinder = new ArmonicFinderEngine(this, MarketData, Symbol, TimeFrame, Chart, Periods, SubPeriods);
+
+
+            armonicFinder = new ArmonicFinderEngine(MarketData, Symbol, TimeFrame, Chart, EngineParemeter.Periods);
+            armonicFinder.Initialize();
+
             userInterface = new GUI(this);
             userInterface.OnClickFind += OnFind;
 
@@ -179,7 +209,7 @@ namespace cAlgo.Robots
         }
         protected override void OnBar()
         {
-            //armonicFinder.Calculate();
+
         }
         protected override void OnStop()
         {
@@ -193,14 +223,17 @@ namespace cAlgo.Robots
         {
 
         }
-        protected void OnDataLoading(double percentage, int count)
+        protected void OnDataLoading(double percentage, int count, string symbol)
         {
-            Print("Loading Bars : {0}% ({1} Bars) ", percentage, count);
+            Print("Loading Bars for Symbol {2} : {0}% ({1} Bars) ", percentage, count, symbol);
         }
-        protected void OnDataLoaded()
+        protected void OnDataLoaded(DataFlow sender)
         {
-            Print("Bars Loaded");
-            testFlow.TraceNewBar(OnOtherSymbolBar);
+            Print("Bars Loaded For Symbol {0}", sender.BarsData.SymbolName);
+            if (sender.BarsData.SymbolName != Symbol.Name)
+            {
+                sender.TraceNewBar(OnOtherSymbolBar);
+            }
         }
         protected void OnOtherSymbolBar(BarOpenedEventArgs e)
         {
@@ -235,19 +268,23 @@ namespace cAlgo.Robots
             }
         }
 
-        private event Action on_AsyncBarsLoaded;
-        private event Action<double, int> on_AsyncBarsLoading;
-
-        public DataFlow(MarketData marketdata, Symbol symbol, TimeFrame timeframe, bool trigNewBar = false, bool trigNewTick = false)
+        private event Action<DataFlow> on_AsyncBarsLoaded;
+        private event Action<double, int, string> on_AsyncBarsLoading;
+        public DataFlow(MarketData marketdata, Symbol symbol, TimeFrame timeframe)
         {
             _marketdata = marketdata;
             _symbol = symbol;
             _timeframe = timeframe;
-            //_trigNewBar = trigNewBar;
-            //_trigNewTick = trigNewTick;
         }
 
-        public void RequestBars(int barRequested, bool __async = false, Action listnerLoaded=null, Action<double, int> listnerLoading = null)
+        public void TraceNewBar(Action<BarOpenedEventArgs> listner)
+        {
+            if (BarsData != null)
+            {
+                BarsData.BarOpened += listner;
+            }
+        }
+        public void RequestBars(int barRequested, bool __async = false, Action<DataFlow> listnerLoaded = null, Action<double, int, string> listnerLoading = null)
         {
             _barRequested = barRequested;
             if (!__async)
@@ -267,13 +304,7 @@ namespace cAlgo.Robots
                 AsyncBarsLoading(true);
             }
         }
-        public void TraceNewBar(Action<BarOpenedEventArgs> listner)
-        {
-            if (BarsData != null)
-            {
-                BarsData.BarOpened += listner;
-            }
-        }
+
         private void AsyncBarsLoading(bool first = false)
         {
             if (first)
@@ -285,8 +316,9 @@ namespace cAlgo.Robots
             {
                 //calcolo la percentuale dei dati caricati fino ad ora
                 double AsyncBarsLoadingPercentage = BarsData.Count >= _barRequested ? 100 : Math.Round(Convert.ToDouble(BarsData.Count * 100) / _barRequested, 2);
-                if (on_AsyncBarsLoading != null) {
-                    on_AsyncBarsLoading.Invoke(AsyncBarsLoadingPercentage, BarsData.Count);
+                if (on_AsyncBarsLoading != null)
+                {
+                    on_AsyncBarsLoading.Invoke(AsyncBarsLoadingPercentage, BarsData.Count, _symbol.ToString());
                 }
                 if (BarsData.Count < _barRequested)
                 {
@@ -319,8 +351,9 @@ namespace cAlgo.Robots
         {
             //segnalo il completamento
             isBarLoadCompleted = true;
-            if (on_AsyncBarsLoaded != null) {
-                on_AsyncBarsLoaded.Invoke();
+            if (on_AsyncBarsLoaded != null)
+            {
+                on_AsyncBarsLoaded.Invoke(this);
             }
         }
 
@@ -341,9 +374,6 @@ namespace cAlgo.Robots
         {
 
         }
-
-
-
     }
     public class GUI
     {
@@ -551,185 +581,206 @@ namespace cAlgo.Robots
             return String.Format("X{0}_", XA.FromOpenTime.ToString("dd/MM/yyyy:HHmmss"));
         }
     }
-    public class Statistics
-    {
-        private readonly List<ArmonicPattern> Info;
-        private readonly ArmonicBot Bot;
+    //}
+    //public class Statistics
+    //{
+    //    private readonly List<ArmonicPattern> Info;
+    //    private readonly ArmonicBot Bot;
 
-        public Statistics(ArmonicBot bot)
-        {
-            Bot = bot;
-            Info = new List<ArmonicPattern>();
+    //    public Statistics(ArmonicBot bot)
+    //    {
+    //        Bot = bot;
+    //        Info = new List<ArmonicPattern>();
 
-        }
+    //    }
 
-        public void Add(ArmonicPattern pattern)
-        {
-            ArmonicPattern _info = new ArmonicPattern(pattern);
+    //    public void Add(ArmonicPattern pattern)
+    //    {
+    //        ArmonicPattern _info = new ArmonicPattern(pattern);
 
-            //controllo se ho già registrato questo pattern
-            bool _found = false;
-            for (int _patternIndex = 0; _patternIndex < Info.Count(); _patternIndex++)
-            {
-                ArmonicPattern _pattern = Info[_patternIndex];
-                if (_pattern.GetKey() == pattern.GetKey())
-                {
-                    _found = true;
-                    break;
-                }
-            }
-            //se non ho già il pattern in lista allora lo aggiungo
-            if (!_found)
-            {
-                Info.Add(_info);
-            }
+    //        //controllo se ho già registrato questo pattern
+    //        bool _found = false;
+    //        for (int _patternIndex = 0; _patternIndex < Info.Count(); _patternIndex++)
+    //        {
+    //            ArmonicPattern _pattern = Info[_patternIndex];
+    //            if (_pattern.GetKey() == pattern.GetKey())
+    //            {
+    //                _found = true;
+    //                break;
+    //            }
+    //        }
+    //        //se non ho già il pattern in lista allora lo aggiungo
+    //        if (!_found)
+    //        {
+    //            Info.Add(_info);
+    //        }
 
 
 
-        }
-        public int GetCompleated(PatternType type)
-        {
-            int count = 0;
+    //    }
+    //    public int GetCompleated(PatternType type)
+    //    {
+    //        int count = 0;
 
-            foreach (ArmonicPattern pattern in Info)
-            {
-                if (pattern.Type == type && pattern.Compleated)
-                {
-                    count++;
-                }
-            }
-            return count;
-        }
-        public int GetSucceed(PatternType type)
-        {
-            int count = 0;
+    //        foreach (ArmonicPattern pattern in Info)
+    //        {
+    //            if (pattern.Type == type && pattern.Compleated)
+    //            {
+    //                count++;
+    //            }
+    //        }
+    //        return count;
+    //    }
+    //    public int GetSucceed(PatternType type)
+    //    {
+    //        int count = 0;
 
-            foreach (ArmonicPattern pattern in Info)
-            {
-                if (pattern.Type == type && pattern.Succeed)
-                {
-                    count++;
-                }
-            }
-            return count;
-        }
-        public int GetFailed(PatternType type)
-        {
-            int count = 0;
+    //        foreach (ArmonicPattern pattern in Info)
+    //        {
+    //            if (pattern.Type == type && pattern.Succeed)
+    //            {
+    //                count++;
+    //            }
+    //        }
+    //        return count;
+    //    }
+    //    public int GetFailed(PatternType type)
+    //    {
+    //        int count = 0;
 
-            foreach (ArmonicPattern pattern in Info)
-            {
-                if (pattern.Type == type && pattern.Failed)
-                {
-                    count++;
-                }
-            }
-            return count;
-        }
-        public double GetWinLossRatio(PatternType type)
-        {
-            int countCompleated = GetCompleated(type);
+    //        foreach (ArmonicPattern pattern in Info)
+    //        {
+    //            if (pattern.Type == type && pattern.Failed)
+    //            {
+    //                count++;
+    //            }
+    //        }
+    //        return count;
+    //    }
+    //    public double GetWinLossRatio(PatternType type)
+    //    {
+    //        int countCompleated = GetCompleated(type);
 
-            return countCompleated > 0 ? 100 * GetSucceed(type) / countCompleated : 0;
-        }
-        public void Print()
-        {
-            string text;
-            text = Bot.Time.ToString();
-            Bot.Chart.DrawStaticText("TIME", text, VerticalAlignment.Top, HorizontalAlignment.Right, Color.DarkCyan);
-            text = string.Concat("GARTLEY Compleated ", GetCompleated(PatternType.Gartley));
-            text = string.Concat(text, "     Succees ", GetSucceed(PatternType.Gartley));
-            text = string.Concat(text, "     Failed ", GetFailed(PatternType.Gartley));
-            text = string.Concat(text, "     Win/Loss Ratio ", GetWinLossRatio(PatternType.Gartley));
-            Bot.Chart.DrawStaticText("STAT#1", text, VerticalAlignment.Top, HorizontalAlignment.Left, Color.Blue);
-            text = string.Concat("\nCYPHER Compleated ", GetCompleated(PatternType.Cypher));
-            text = string.Concat(text, "     Succees ", GetSucceed(PatternType.Cypher));
-            text = string.Concat(text, "     Failed ", GetFailed(PatternType.Cypher));
-            text = string.Concat(text, "     Win/Loss Ratio ", GetWinLossRatio(PatternType.Cypher));
-            Bot.Chart.DrawStaticText("STAT#2", text, VerticalAlignment.Top, HorizontalAlignment.Left, Color.Orange);
-            text = string.Concat("\n\nBUTTERFLY Compleated ", GetCompleated(PatternType.Butterfly));
-            text = string.Concat(text, "     Succees ", GetSucceed(PatternType.Butterfly));
-            text = string.Concat(text, "     Failed ", GetFailed(PatternType.Butterfly));
-            text = string.Concat(text, "     Win/Loss Ratio ", GetWinLossRatio(PatternType.Butterfly));
-            Bot.Chart.DrawStaticText("STAT#3", text, VerticalAlignment.Top, HorizontalAlignment.Left, Color.Purple);
-            text = string.Concat("\n\n\nBAT Compleated ", GetCompleated(PatternType.Bat));
-            text = string.Concat(text, "     Succees ", GetSucceed(PatternType.Bat));
-            text = string.Concat(text, "     Failed ", GetFailed(PatternType.Bat));
-            text = string.Concat(text, "     Win/Loss Ratio ", GetWinLossRatio(PatternType.Bat));
-            Bot.Chart.DrawStaticText("STAT#4", text, VerticalAlignment.Top, HorizontalAlignment.Left, Color.Gray);
+    //        return countCompleated > 0 ? 100 * GetSucceed(type) / countCompleated : 0;
+    //    }
+    //    public void Print()
+    //    {
+    //        string text;
+    //        text = Bot.Time.ToString();
+    //        Bot.Chart.DrawStaticText("TIME", text, VerticalAlignment.Top, HorizontalAlignment.Right, Color.DarkCyan);
+    //        text = string.Concat("GARTLEY Compleated ", GetCompleated(PatternType.Gartley));
+    //        text = string.Concat(text, "     Succees ", GetSucceed(PatternType.Gartley));
+    //        text = string.Concat(text, "     Failed ", GetFailed(PatternType.Gartley));
+    //        text = string.Concat(text, "     Win/Loss Ratio ", GetWinLossRatio(PatternType.Gartley));
+    //        Bot.Chart.DrawStaticText("STAT#1", text, VerticalAlignment.Top, HorizontalAlignment.Left, Color.Blue);
+    //        text = string.Concat("\nCYPHER Compleated ", GetCompleated(PatternType.Cypher));
+    //        text = string.Concat(text, "     Succees ", GetSucceed(PatternType.Cypher));
+    //        text = string.Concat(text, "     Failed ", GetFailed(PatternType.Cypher));
+    //        text = string.Concat(text, "     Win/Loss Ratio ", GetWinLossRatio(PatternType.Cypher));
+    //        Bot.Chart.DrawStaticText("STAT#2", text, VerticalAlignment.Top, HorizontalAlignment.Left, Color.Orange);
+    //        text = string.Concat("\n\nBUTTERFLY Compleated ", GetCompleated(PatternType.Butterfly));
+    //        text = string.Concat(text, "     Succees ", GetSucceed(PatternType.Butterfly));
+    //        text = string.Concat(text, "     Failed ", GetFailed(PatternType.Butterfly));
+    //        text = string.Concat(text, "     Win/Loss Ratio ", GetWinLossRatio(PatternType.Butterfly));
+    //        Bot.Chart.DrawStaticText("STAT#3", text, VerticalAlignment.Top, HorizontalAlignment.Left, Color.Purple);
+    //        text = string.Concat("\n\n\nBAT Compleated ", GetCompleated(PatternType.Bat));
+    //        text = string.Concat(text, "     Succees ", GetSucceed(PatternType.Bat));
+    //        text = string.Concat(text, "     Failed ", GetFailed(PatternType.Bat));
+    //        text = string.Concat(text, "     Win/Loss Ratio ", GetWinLossRatio(PatternType.Bat));
+    //        Bot.Chart.DrawStaticText("STAT#4", text, VerticalAlignment.Top, HorizontalAlignment.Left, Color.Gray);
 
-        }
-    }
-    public class ArmonicFinderEngine
-    {
-        private readonly ArmonicBot Bot;
-        private readonly List<ArmonicPattern> PatternList;
-        public Statistics Statistics;
+    //    }
+    //}
+    public class ArmonicFinderEngine {
         private readonly Symbol Symbol;
         private readonly TimeFrame MainTimeFrame;
         private readonly TimeFrame PrecisionTimeFrame;
-        public Chart Chart;
         private readonly SegmentTracerEngine SegmentTracer;
+        private readonly Chart Chart;
+        private bool _loadBarsTerminate = false;
+
+        public List<ArmonicPattern> PatternList;
         public DataFlow MainData;
         public DataFlow PrecisionData;
-        public int MaxPeriods;
-        private int _totalBars = 0;
-        private bool _loadBarsTerminate = false;
-        public ArmonicFinderEngine(ArmonicBot bot, MarketData marketdata, Symbol symbol, TimeFrame timeframe, Chart chart, int maxperiods, int precisionperiods)
+        public int Periods {get; private set;}
+        
+        private event Action<ArmonicFinderEngine, double> onDataLoading;
+        private event Action<ArmonicFinderEngine> onDataLoaded;
+        private event Action<ArmonicFinderEngine> onNewBar;
+
+        public ArmonicFinderEngine(MarketData marketdata, Symbol symbol, TimeFrame timeframe, Chart chart, int periods)
         {
             int MinutesFineCalc;
 
-            Bot = bot;
-            MaxPeriods = maxperiods;
+            Periods = periods;
             Symbol = symbol;
             Chart = chart;
             MainTimeFrame = timeframe;
             MinutesFineCalc = Utils.TimeframeToMinutes(timeframe);
-            PrecisionTimeFrame = Utils.MinutesToTimeFrame(MinutesFineCalc / precisionperiods);
+            PrecisionTimeFrame = Utils.MinutesToTimeFrame(MinutesFineCalc / EngineParemeter.SubPeriods);
 
             PatternList = new List<ArmonicPattern>();
-            SegmentTracer = new SegmentTracerEngine(this, true);
-            Statistics = new Statistics(bot);
+            SegmentTracer = new SegmentTracerEngine(this, EngineParemeter.DrawSwing);
             MainData = new DataFlow(marketdata, Symbol, MainTimeFrame);
             PrecisionData = new DataFlow(marketdata, Symbol, PrecisionTimeFrame);
-
-            Bot.Print("Initializing Engine for Symbol {0} {1}", Symbol.Name, MainTimeFrame.ToString());
-            MainData.RequestBars(MaxPeriods, true, OnDataLoaded, OnDataLoading);
-            PrecisionData.RequestBars(MaxPeriods * precisionperiods, true, OnDataLoaded, OnDataLoading);
-            _totalBars = (MaxPeriods * precisionperiods) + MaxPeriods;
         }
 
-        protected void OnDataLoading(double percentage, int count)
+        public void Initialize(Action<ArmonicFinderEngine> loadedListner = null, Action<ArmonicFinderEngine,double> loadingListner = null, Action<ArmonicFinderEngine> newBarListner = null) 
+        {
+            Debug.Print("Initializing Engine for Symbol {0} {1}", Symbol.Name, MainTimeFrame.ToString());
+            MainData.RequestBars(Periods, true, OnBarsLoaded, OnBarsLoading);
+            PrecisionData.RequestBars(Periods * EngineParemeter.SubPeriods, true, OnBarsLoaded, OnBarsLoading);
+            if (loadingListner != null )
+                onDataLoading += loadingListner;
+            if(loadedListner != null)
+                onDataLoaded += loadedListner;
+            if(newBarListner != null)
+                onNewBar += newBarListner;
+        }
+        protected void OnBarsLoading(double percentage, int count, string SymbolName)
         {
             int totBars = 0;
             int loadBars = 0;
+            double percent = 0;
 
             totBars = MainData.GetBarsRequestedCount() + PrecisionData.GetBarsRequestedCount();
             loadBars = MainData.GetBarsLoadedCount() + PrecisionData.GetBarsLoadedCount();
-            Bot.Print("Loading Bars : {0}% ({1} of {2} Bars) ...", (loadBars * 100) / totBars, loadBars, totBars);
+            percent = (loadBars * 100) / totBars;
+            Debug.Print("Loading Data : {0}% ({1} of {2} Bars) ...", (loadBars * 100) / totBars, loadBars, totBars);
+
+            if(onDataLoading != null)
+                onDataLoading.Invoke(this, percent);
         }
-        protected void OnDataLoaded()
+        protected void OnBarsLoaded(DataFlow sender)
         {
             if (MainData.isBarLoadCompleted && PrecisionData.isBarLoadCompleted)
             {
-                Bot.Print("Bars Loaded");
+                Debug.Print("Loading Compleated.");
                 _loadBarsTerminate = true;
-                LoadPatterns(Symbol, MainTimeFrame);
+
+                if(onDataLoaded != null)
+                    onDataLoaded.Invoke(this);
+
+                if (onNewBar != null)
+                    MainData.TraceNewBar(On_NewBar);
+                
+                SimulatePatterns(Symbol, MainTimeFrame);
 
             }
         }
-        //protected void OnOtherSymbolBar(BarOpenedEventArgs e) {
-        //    Bot.Print("New Bar Opened At {0}  Incoming From Symbol {1} in TimeFrame {2}", e.Bars.LastBar.OpenTime.ToString("dd/MM/yyyy:HHmmss"), e.Bars.SymbolName, e.Bars.TimeFrame.ToString());
-        //}
+        protected void On_NewBar(BarOpenedEventArgs e) {
+            Debug.Print("New Bar Opened At {0}  Incoming From Symbol {1} in TimeFrame {2}", e.Bars.LastBar.OpenTime.ToString("dd/MM/yyyy:HHmmss"), e.Bars.SymbolName, e.Bars.TimeFrame.ToString());
+            onNewBar.Invoke(this);
+        }
 
         private void LoadPatterns(Symbol RequestSymbol, TimeFrame RequestTimeFrame)
         {
             DateTime FromDate, ToDate;
             int _index = 0;
-            if (_loadBarsTerminate && MainData.BarsData.Count() >= MaxPeriods)
+            if (_loadBarsTerminate && MainData.BarsData.Count() >= Periods)
             {
                 //creo la segmentazione
-                for (_index = MaxPeriods; _index > 1; _index--)
+                for (_index = Periods; _index > 1; _index--)
                 {
                     SegmentTracer.Calculate(MainData.BarsData.Last(_index - 1), MainData.BarsData.Last(_index), false);
                 }
@@ -745,7 +796,7 @@ namespace cAlgo.Robots
                 for (_index = 0; _index < PatternList.Count(); _index++)
                 {
                     FromDate = PatternList[_index].BC.ToOpenTime;
-                    ToDate = ToDate = Bot.Time;
+                    ToDate = ToDate = MainData.BarsData.LastBar.OpenTime;
                     foreach (Bar FineBar in PrecisionData.BarsData.Where(data => (data.OpenTime >= FromDate) && (data.OpenTime <= ToDate)))
                     {
                         FineCalculate(true, 0, FineBar.OpenTime, PatternList[_index], FineBar);
@@ -759,15 +810,14 @@ namespace cAlgo.Robots
         {
             DateTime FromDate, ToDate;
 
-            if (_loadBarsTerminate && MainData.BarsData.Count() >= MaxPeriods)
+            if (_loadBarsTerminate && MainData.BarsData.Count() >= Periods)
             {
-                for (int _index = MaxPeriods; _index > 1; _index--)
+                for (int _index = Periods; _index > 1; _index--)
                 {
                     SegmentTracer.Calculate(MainData.BarsData.Last(_index - 1), MainData.BarsData.Last(_index), false);
-                    //}
-
-                    //for (int _index = MaxPeriods; _index > 1; _index--) {
+                    
                     Calculate();
+
                     if (_index - 2 > 0)
                     {
                         FromDate = MainData.BarsData.Last(_index - 2).OpenTime;
@@ -777,7 +827,7 @@ namespace cAlgo.Robots
                         }
                         else
                         {
-                            ToDate = Bot.Time;
+                            ToDate = MainData.BarsData.LastBar.OpenTime;
                         }
 
                         foreach (Bar FineBar in PrecisionData.BarsData.Where(data => (data.OpenTime >= FromDate) && (data.OpenTime <= ToDate)))
@@ -792,53 +842,7 @@ namespace cAlgo.Robots
             }
         }
 
-        public List<ArmonicPattern> Patterns()
-        {
-            return PatternList;
-        }
-        //public int GetPatternCount(bool compleatedOnly, bool incompletedAndDrawableOnly, bool incompleatedAndInPRZ )
-        //{
-        //    int count = 0;
-        //    foreach (ArmonicPattern pattern in PatternList) {
-        //        if (compleatedOnly && !(pattern.Compleated)) continue;
-        //        if (incompletedAndDrawableOnly && !(pattern.Compleated && pattern.Drawable)) continue;
-        //        //if (incompleatedAndInPRZ && !(pattern.Compleated && pattern.PRZ.InArea())) continue;
-        //        count++;
-
-        //    }
-        //    return count;
-        //}
-        public int GetPatternCount()
-        {
-            return PatternList.Count();
-        }
-        public int GetPatternCount(bool compleatedOnly)
-        {
-            int count = 0;
-            foreach (ArmonicPattern pattern in PatternList)
-            {
-                if (compleatedOnly && !(pattern.Compleated))
-                    continue;
-                count++;
-
-            }
-            return count;
-        }
-        public int GetPatternCount(bool compleatedOnly, bool drawableOnly)
-        {
-            int count = 0;
-            foreach (ArmonicPattern pattern in PatternList)
-            {
-                if (compleatedOnly && !(pattern.Compleated))
-                    continue;
-                if (drawableOnly && !(pattern.Drawable))
-                    continue;
-
-                count++;
-            }
-            return count;
-        }
-        public int SegmentPeriod(Segment segment)
+        private int SegmentPeriod(Segment segment)
         {
             int _retValue;
             int _leftIndex;
@@ -849,7 +853,7 @@ namespace cAlgo.Robots
             return _retValue;
 
         }
-        public double PriceRetracement(Segment segment, double retracement)
+        private double PriceRetracement(Segment segment, double retracement)
         {
             double delta = segment.Direction == Direction.Up ? segment.ToPrice - segment.FromPrice : segment.FromPrice - segment.ToPrice;
             double deltaRetracement = delta * retracement;
@@ -857,14 +861,14 @@ namespace cAlgo.Robots
 
             return value;
         }
-        public double MeasueSwing(Segment leftSegment, Segment rightSegment)
+        private double MeasueSwing(Segment leftSegment, Segment rightSegment)
         {
             double a, b;
             a = rightSegment.Measure();
             b = leftSegment.Measure();
             return a / b;
         }
-        public bool VerifyAndUpdateAB(ArmonicPattern pattern, Segment AB)
+        private bool VerifyAndUpdateAB(ArmonicPattern pattern, Segment AB)
         {
             double _value;
             //CALCOLA IL RAPPORTO TRA XA E AB
@@ -893,7 +897,7 @@ namespace cAlgo.Robots
                 return true;
             }
         }
-        public bool VerifyAndUpdateBC(ArmonicPattern pattern, Segment BC)
+        private bool VerifyAndUpdateBC(ArmonicPattern pattern, Segment BC)
         {
             double _valueABBC;
             double _valueXAXC;
@@ -1019,7 +1023,7 @@ namespace cAlgo.Robots
                 }
             }
         }
-        public bool B_InRange(double retracementValue)
+        private bool B_InRange(double retracementValue)
         {
             if ((retracementValue >= 0.5 && retracementValue < 0.618) || (retracementValue >= 0.618 && retracementValue < 0.786) || (retracementValue >= 0.382 && retracementValue < 0.618) || (retracementValue >= 0.786 && retracementValue < 1))
             {
@@ -1030,7 +1034,7 @@ namespace cAlgo.Robots
                 return false;
             }
         }
-        public PatternType C_IdentifyPattern(ArmonicPattern pattern, double retracementValueABBC, double retracementValueXAXC)
+        private PatternType C_IdentifyPattern(ArmonicPattern pattern, double retracementValueABBC, double retracementValueXAXC)
         {
             PatternType _type = PatternType.Undefined;
 
@@ -1058,7 +1062,7 @@ namespace cAlgo.Robots
             return _type;
 
         }
-        public void RecordPatternInList(ArmonicPattern pattern)
+        private void RecordPatternInList(ArmonicPattern pattern)
         {
             //controllo se ho già registrato questo pattern
             bool _found = false;
@@ -1083,7 +1087,7 @@ namespace cAlgo.Robots
                 PatternList.Add(pattern);
             }
         }
-        public void DeletePatternInList(ArmonicPattern pattern)
+        private void DeletePatternInList(ArmonicPattern pattern)
         {
 
             //if (pattern.Compleated) {
@@ -1456,7 +1460,7 @@ namespace cAlgo.Robots
                         }
                         pattern.Closed = true;
                         //registra statistiche
-                        Statistics.Add(pattern);
+                        //Statistics.Add(pattern);
                         continue;
                     }
 
@@ -1486,7 +1490,7 @@ namespace cAlgo.Robots
                         pattern.Target1Compleated = true;
                         pattern.Succeed = true;
 
-                        Statistics.Add(pattern);
+                        //Statistics.Add(pattern);
 
 
                     }
@@ -1504,7 +1508,7 @@ namespace cAlgo.Robots
                         pattern.Target2Compleated = true;
                         pattern.Succeed = true;
                         pattern.Closed = true;
-                        Statistics.Add(pattern);
+                        //Statistics.Add(pattern);
 
                         continue;
                     }
@@ -1607,7 +1611,7 @@ namespace cAlgo.Robots
                 DrawPattern(pattern, Chart, Symbol.Bid);
             }
         }
-        public void DrawPattern(ArmonicPattern pattern, Chart chart, double price)
+        private void DrawPattern(ArmonicPattern pattern, Chart chart, double price)
         {
             int _thickness = 2;
             Color _borderColor = pattern.Mode == PatternMode.Bullish ? Color.Green : Color.Red;
@@ -1794,7 +1798,7 @@ namespace cAlgo.Robots
 
 
         }
-        public void DeleteDrawPattern(ArmonicPattern pattern, Chart chart)
+        private void DeleteDrawPattern(ArmonicPattern pattern, Chart chart)
         {
 
 
@@ -1931,7 +1935,7 @@ namespace cAlgo.Robots
                 // le barre seguono il loro corso quindi aggiorno l'ultimo segmento
                 Segment.Update(_curr);
                 SegmentList[SegmentList.Count - 1] = Segment;
-                DrawSegment();
+                //DrawSegment();
             }
             else
             {
@@ -1940,7 +1944,7 @@ namespace cAlgo.Robots
                 if (_nested && _swing)
                 {
                     Segment.UpdatePrice(_curr);
-                    DrawSegment();
+                    //DrawSegment();
                 }
 
                 Segment = new Segment(Direction, _prev, _curr);
@@ -1949,43 +1953,43 @@ namespace cAlgo.Robots
                 {
                     Segment.UpdateFromPrice(_curr);
                 }
-                DrawSegment();
+                //DrawSegment();
                 SegmentList.Add(Segment);
             }
 
             //elimino i segmenti dallo storico secondo il numero di periodi impostato
-            if (Engine.MainData.BarsData.Count() > Engine.MaxPeriods && clearBack)
+            if (Engine.MainData.BarsData.Count() > Engine.Periods && clearBack)
             {
                 foreach (Segment _app in SegmentList)
                 {
-                    if (_app.ToOpenTime < Engine.MainData.BarsData.Last(Engine.MaxPeriods).OpenTime)
+                    if (_app.ToOpenTime < Engine.MainData.BarsData.Last(Engine.Periods).OpenTime)
                     {
-                        DeleteDrawSegment(SegmentList[0]);
+                        //DeleteDrawSegment(SegmentList[0]);
                         SegmentList.RemoveAt(0);
                         break;
                     }
                 }
             }
         }
-        public void DrawSegment()
-        {
-            if (_drawSwing)
-            {
-                string _name = String.Format("Segment_{0} ", Segment.FromOpenTime.ToString("dd/MM/yyyy:HHmmss"));
-                Engine.Chart.DrawTrendLine(_name, Segment.FromOpenTime, Segment.FromPrice, Segment.ToOpenTime, Segment.ToPrice, Color.Yellow, 1, LineStyle.Dots);
+        //public void DrawSegment()
+        //{
+        //    if (_drawSwing)
+        //    {
+        //        string _name = String.Format("Segment_{0} ", Segment.FromOpenTime.ToString("dd/MM/yyyy:HHmmss"));
+        //        Engine.Chart.DrawTrendLine(_name, Segment.FromOpenTime, Segment.FromPrice, Segment.ToOpenTime, Segment.ToPrice, Color.Yellow, 1, LineStyle.Dots);
 
 
 
-            }
-        }
-        public void DeleteDrawSegment(Segment SegmentToDelete)
-        {
-            if (_drawSwing)
-            {
-                string _name = String.Format("Segment_{0} ", SegmentToDelete.FromOpenTime.ToString("dd/MM/yyyy:HHmmss"));
-                Engine.Chart.RemoveObject(_name);
-            }
-        }
+        //    }
+        //}
+        //public void DeleteDrawSegment(Segment SegmentToDelete)
+        //{
+        //    if (_drawSwing)
+        //    {
+        //        string _name = String.Format("Segment_{0} ", SegmentToDelete.FromOpenTime.ToString("dd/MM/yyyy:HHmmss"));
+        //        Engine.Chart.RemoveObject(_name);
+        //    }
+        //}
     }
     public class Segment
     {
@@ -2133,11 +2137,11 @@ namespace cAlgo.Robots
         Bullish,
         Bearish
     }
-    public enum SegmentMoveType
-    {
-        Impulsive,
-        corrective
-    }
+    //public enum SegmentMoveType
+    //{
+    //    Impulsive,
+    //    corrective
+    //}
     public enum PatternStep
     {
         BFinding,
@@ -2145,12 +2149,12 @@ namespace cAlgo.Robots
         DFinding,
         Completed
     }
-    public enum EnterMode
-    {
-        Automatic,
-        Manual,
-        Signal,
-        None
-    }
+    //public enum EnterMode
+    //{
+    //    Automatic,
+    //    Manual,
+    //    Signal,
+    //    None
+    //}
 
 }
