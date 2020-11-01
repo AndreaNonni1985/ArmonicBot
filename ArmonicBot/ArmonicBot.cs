@@ -152,93 +152,11 @@ namespace cAlgo
             sender.Print(message, parameters);
         }
     }
-    public static class EngineParemeter
+    public static class GlobalParameter
     {
         public static int Periods;
         public static int SubPeriods;
         public static bool DrawSwing;
-    }
-}
-
-namespace cAlgo.Robots
-{
-    [Robot(TimeZone = TimeZones.UTC, AccessRights = AccessRights.None)]
-    public class ArmonicBot : Robot
-    {
-
-        [Parameter(DefaultValue = 120, Group = "Scanner", MinValue = 10, MaxValue = 200, Step = 1)]
-        public int Periods { get; set; }
-
-        [Parameter(DefaultValue = false, Group = "Scanner")]
-        public bool DrawSwing { get; set; }
-
-        [Parameter("MicroBars", DefaultValue = 96, Group = "Scanner", MinValue = 96, MaxValue = 192, Step = 1)]
-        public int SubPeriods { get; set; }
-
-        public ArmonicFinderEngine armonicFinder;
-        public GUI userInterface;
-
-        public DataFlow testFlow;
-        public DataFlow testFlow2;
-        protected override void OnStart()
-        {
-            Debug.sender = this;
-
-            EngineParemeter.DrawSwing = DrawSwing;
-            EngineParemeter.SubPeriods = SubPeriods;
-            EngineParemeter.Periods = Periods;
-
-            testFlow = new DataFlow(MarketData, Symbols.GetSymbol("EURGBP"), TimeFrame.Minute);
-            testFlow.RequestBars(99999, true, OnDataLoaded, OnDataLoading);
-
-            testFlow2 = new DataFlow(MarketData, Symbols.GetSymbol("EURJPY"), TimeFrame.Minute2);
-            testFlow2.RequestBars(99999, true, OnDataLoaded, OnDataLoading);
-
-
-            armonicFinder = new ArmonicFinderEngine(MarketData, Symbol, TimeFrame, Chart, EngineParemeter.Periods);
-            armonicFinder.Initialize();
-
-            userInterface = new GUI(this);
-            userInterface.OnClickFind += OnFind;
-
-
-        }
-        protected override void OnTick()
-        {
-            //armonicFinder.FineCalculate(false, Bid, Bars.Last(0).OpenTime);
-        }
-        protected override void OnBar()
-        {
-
-        }
-        protected override void OnStop()
-        {
-
-        }
-        protected override void OnTimer()
-        {
-            base.OnTimer();
-        }
-        protected void OnFind()
-        {
-
-        }
-        protected void OnDataLoading(double percentage, int count, string symbol)
-        {
-            Print("Loading Bars for Symbol {2} : {0}% ({1} Bars) ", percentage, count, symbol);
-        }
-        protected void OnDataLoaded(DataFlow sender)
-        {
-            Print("Bars Loaded For Symbol {0}", sender.BarsData.SymbolName);
-            if (sender.BarsData.SymbolName != Symbol.Name)
-            {
-                sender.TraceNewBar(OnOtherSymbolBar);
-            }
-        }
-        protected void OnOtherSymbolBar(BarOpenedEventArgs e)
-        {
-            Print("New Bar Opened At {0}  Incoming From Symbol {1} in TimeFrame {2}", e.Bars.LastBar.OpenTime.ToString("dd/MM/yyyy:HHmmss"), e.Bars.SymbolName, e.Bars.TimeFrame.ToString());
-        }
     }
     public class DataFlow
     {
@@ -375,33 +293,223 @@ namespace cAlgo.Robots
 
         }
     }
+}
+
+namespace cAlgo.Robots
+{
+    [Robot(TimeZone = TimeZones.UTC, AccessRights = AccessRights.None)]
+    public class ArmonicBot : Robot
+    {
+
+        [Parameter(DefaultValue = 120, Group = "Scanner", MinValue = 10, MaxValue = 200, Step = 1)]
+        public int Periods { get; set; }
+
+        [Parameter(DefaultValue = false, Group = "Scanner")]
+        public bool DrawSwing { get; set; }
+
+        [Parameter("MicroBars", DefaultValue = 96, Group = "Scanner", MinValue = 96, MaxValue = 192, Step = 1)]
+        public int SubPeriods { get; set; }
+
+        public ArmonicFinderEngine armonicFinder;
+        public GUI userInterface;
+
+        //public DataFlow testFlow;
+        //public DataFlow testFlow2;
+        protected override void OnStart()
+        {
+            Debug.sender = this;
+
+            GlobalParameter.DrawSwing = DrawSwing;
+            GlobalParameter.SubPeriods = SubPeriods;
+            GlobalParameter.Periods = Periods;
+
+            //testFlow = new DataFlow(MarketData, Symbols.GetSymbol("EURGBP"), TimeFrame.Minute);
+            //testFlow.RequestBars(99999, true, OnDataLoaded, OnDataLoading);
+
+            //testFlow2 = new DataFlow(MarketData, Symbols.GetSymbol("EURJPY"), TimeFrame.Minute2);
+            //testFlow2.RequestBars(99999, true, OnDataLoaded, OnDataLoading);
+            userInterface = new GUI(Chart);
+            userInterface.AddWatchlists(Watchlists);
+            userInterface.OnClickFind += OnFind;
+
+
+
+
+            armonicFinder = new ArmonicFinderEngine(MarketData, Symbol, TimeFrame, Chart, 200);
+            armonicFinder.Initialize(OnEngineLoaded, OnEngineLoading);
+            userInterface.LoadingBar.Value = 0;
+            userInterface.LoadingBar.MaxValue = 100;
+            userInterface.LoadingBar.IsVisible = true;
+
+
+
+        }
+        protected override void OnTick()
+        {
+            //armonicFinder.FineCalculate(false, Bid, Bars.Last(0).OpenTime);
+        }
+        protected override void OnBar()
+        {
+
+        }
+        protected override void OnStop()
+        {
+
+        }
+        protected override void OnTimer()
+        {
+            base.OnTimer();
+        }
+        protected void OnFind()
+        {
+
+        }
+        protected void OnDataLoading(double percentage, int count, string symbol)
+        {
+            Print("Loading Bars for Symbol {2} : {0}% ({1} Bars) ", percentage, count, symbol);
+        }
+        protected void OnDataLoaded(DataFlow sender)
+        {
+            Print("Bars Loaded For Symbol {0}", sender.BarsData.SymbolName);
+            if (sender.BarsData.SymbolName != Symbol.Name)
+            {
+                sender.TraceNewBar(OnOtherSymbolBar);
+            }
+        }
+        protected void OnOtherSymbolBar(BarOpenedEventArgs e)
+        {
+            Print("New Bar Opened At {0}  Incoming From Symbol {1} in TimeFrame {2}", e.Bars.LastBar.OpenTime.ToString("dd/MM/yyyy:HHmmss"), e.Bars.SymbolName, e.Bars.TimeFrame.ToString());
+        }
+        protected void OnEngineLoading(ArmonicFinderEngine sender, double percentage)
+        {
+            Debug.Print("Loading Data for Symbol {1} : {0}% ...", percentage, sender.MainData.BarsData.SymbolName);
+            userInterface.LoadingBar.Value = Convert.ToInt32(percentage);
+        }
+        protected void OnEngineLoaded(ArmonicFinderEngine sender)
+        {
+            Debug.Print("Loading Finisced for Symbol {0}.", sender.MainData.BarsData.SymbolName);
+            userInterface.LoadingBar.IsVisible = false;
+        }
+    }
+
     public class GUI
     {
-        public ArmonicBot Bot;
-        public Button button;
-        public Panel panel;
+        private Chart Chart;
+        public ProgressBar LoadingBar;
+        private Panel WatchListPanel;
+        private Button StartButton;
+        private Panel Framework;
+        private List<CheckBox> WatchlistCombo;
 
         public event Action OnClickFind;
-        public GUI(ArmonicBot bot)
+
+        public class ProgressBar : Canvas {
+            private Rectangle border, back, front;
+            private int _value;
+
+            public Color BackColor { private get; set; }
+            public Color ForeColor { private get; set; }
+            public Color BorderColor { private get; set; }
+            public double RadiusX { private get; set; }
+            public double RadiusY { private get; set; }
+            public int MaxValue { private get; set; }
+            public int Value
+            {
+                set {
+                    _value = value; 
+                    if (front != null) front.Width = (_value * this.Width) / MaxValue; 
+                    Reflect(); 
+                } 
+            } 
+
+            public ProgressBar() {
+                BackColor = (Color)DefaultStyles.ScrollViewerStyle.Get(ControlProperty.BackgroundColor);
+                ForeColor = (Color)DefaultStyles.ScrollViewerStyle.Get(ControlProperty.ForegroundColor);
+                BorderColor = (Color)DefaultStyles.ScrollViewerStyle.Get(ControlProperty.BorderColor);
+                RadiusX = 5;
+                RadiusY = 5;
+                border = new Rectangle();
+                back = new Rectangle();
+                front = new Rectangle();
+                this.AddChild(border);
+                this.AddChild(back);
+                this.AddChild(front);
+                Value = 0;
+                MaxValue = 1;
+            }
+            
+            public void Reflect() {
+                border.Width = this.Width;
+                border.Height = this.Height;
+                border.Left = this.Left;
+                border.Top = this.Top;
+                border.RadiusX = this.RadiusX;
+                border.RadiusY = this.RadiusY;
+                border.StrokeColor = this.BorderColor;
+
+                back.Width = this.Width;
+                back.Height = this.Height;
+                back.Left = this.Left;
+                back.Top = this.Top;
+                back.RadiusX = this.RadiusX;
+                back.RadiusY = this.RadiusY;
+                back.FillColor = this.BackColor;
+
+                //front.Width = this.Width;
+                front.Height = this.Height;
+                front.Left = this.Left;
+                front.Top = this.Top;
+                front.RadiusX = this.RadiusX;
+                front.RadiusY = this.RadiusY;
+                front.FillColor = this.ForeColor;
+            }
+            
+        }
+        public GUI(Chart chart)
         {
-            Bot = bot;
-            button = new Button 
+            Chart = chart;
+            StartButton = new Button 
             {
                 Text = "Cerca",
                 Margin = 9
             };
-            button.Click += OnButtonClick;
+            StartButton.Click += OnButtonClick;
 
-            panel = new StackPanel 
-            {
-                Width = 120,
-                HorizontalAlignment = HorizontalAlignment.Left
+            WatchListPanel = new StackPanel {
+                Width = 150,
+                BackgroundColor = Color.FromArgb(30, Color.Blue),
+                Dock = Dock.Left,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                IsEnabled=true,
+                IsHitTestVisible=true
             };
 
-            panel.AddChild(button);
-            Bot.Chart.AddControl(panel);
+            LoadingBar = new ProgressBar {
+                Dock = Dock.Top,
+                VerticalAlignment = VerticalAlignment.Top,
+                Width = Chart.Width / 1.5,
+                Height = 20,
+                BackColor = Color.FromArgb(40, Color.Red),
+                ForeColor = Color.FromArgb(40, Color.Red),
+                BorderColor = Color.FromArgb(255, Color.Red)
+            };
+
+            WatchlistCombo = new List<CheckBox>();
+            Framework = new DockPanel();
+            //Framework.AddChild(StartButton);
+            Framework.AddChild(WatchListPanel);
+
+            Chart.AddControl(Framework);
+            Chart.AddControl(LoadingBar);
         }
 
+        public void AddWatchlists(Watchlists list) {
+            WatchlistCombo.Clear();
+            foreach (Watchlist entry in list) {
+                WatchlistCombo.Add(new CheckBox() { Text = entry.Name }); 
+                WatchListPanel.AddChild(WatchlistCombo[WatchlistCombo.Count - 1]);
+            }
+        }
         private void OnButtonClick(ButtonClickEventArgs obj)
         {
             OnClickFind.Invoke();
@@ -691,7 +799,8 @@ namespace cAlgo.Robots
 
     //    }
     //}
-    public class ArmonicFinderEngine {
+    public class ArmonicFinderEngine
+    {
         private readonly Symbol Symbol;
         private readonly TimeFrame MainTimeFrame;
         private readonly TimeFrame PrecisionTimeFrame;
@@ -702,8 +811,8 @@ namespace cAlgo.Robots
         public List<ArmonicPattern> PatternList;
         public DataFlow MainData;
         public DataFlow PrecisionData;
-        public int Periods {get; private set;}
-        
+        public int Periods { get; private set; }
+
         private event Action<ArmonicFinderEngine, double> onDataLoading;
         private event Action<ArmonicFinderEngine> onDataLoaded;
         private event Action<ArmonicFinderEngine> onNewBar;
@@ -717,24 +826,24 @@ namespace cAlgo.Robots
             Chart = chart;
             MainTimeFrame = timeframe;
             MinutesFineCalc = Utils.TimeframeToMinutes(timeframe);
-            PrecisionTimeFrame = Utils.MinutesToTimeFrame(MinutesFineCalc / EngineParemeter.SubPeriods);
+            PrecisionTimeFrame = Utils.MinutesToTimeFrame(MinutesFineCalc / GlobalParameter.SubPeriods);
 
             PatternList = new List<ArmonicPattern>();
-            SegmentTracer = new SegmentTracerEngine(this, EngineParemeter.DrawSwing);
+            SegmentTracer = new SegmentTracerEngine(this, GlobalParameter.DrawSwing);
             MainData = new DataFlow(marketdata, Symbol, MainTimeFrame);
             PrecisionData = new DataFlow(marketdata, Symbol, PrecisionTimeFrame);
         }
 
-        public void Initialize(Action<ArmonicFinderEngine> loadedListner = null, Action<ArmonicFinderEngine,double> loadingListner = null, Action<ArmonicFinderEngine> newBarListner = null) 
+        public void Initialize(Action<ArmonicFinderEngine> loadedListner = null, Action<ArmonicFinderEngine, double> loadingListner = null, Action<ArmonicFinderEngine> newBarListner = null)
         {
             Debug.Print("Initializing Engine for Symbol {0} {1}", Symbol.Name, MainTimeFrame.ToString());
             MainData.RequestBars(Periods, true, OnBarsLoaded, OnBarsLoading);
-            PrecisionData.RequestBars(Periods * EngineParemeter.SubPeriods, true, OnBarsLoaded, OnBarsLoading);
-            if (loadingListner != null )
+            PrecisionData.RequestBars(Periods * GlobalParameter.SubPeriods, true, OnBarsLoaded, OnBarsLoading);
+            if (loadingListner != null)
                 onDataLoading += loadingListner;
-            if(loadedListner != null)
+            if (loadedListner != null)
                 onDataLoaded += loadedListner;
-            if(newBarListner != null)
+            if (newBarListner != null)
                 onNewBar += newBarListner;
         }
         protected void OnBarsLoading(double percentage, int count, string SymbolName)
@@ -746,30 +855,31 @@ namespace cAlgo.Robots
             totBars = MainData.GetBarsRequestedCount() + PrecisionData.GetBarsRequestedCount();
             loadBars = MainData.GetBarsLoadedCount() + PrecisionData.GetBarsLoadedCount();
             percent = (loadBars * 100) / totBars;
-            Debug.Print("Loading Data : {0}% ({1} of {2} Bars) ...", (loadBars * 100) / totBars, loadBars, totBars);
+            //Debug.Print("Loading Data : {0}% ({1} of {2} Bars) ...", (loadBars * 100) / totBars, loadBars, totBars);
 
-            if(onDataLoading != null)
+            if (onDataLoading != null)
                 onDataLoading.Invoke(this, percent);
         }
         protected void OnBarsLoaded(DataFlow sender)
         {
             if (MainData.isBarLoadCompleted && PrecisionData.isBarLoadCompleted)
             {
-                Debug.Print("Loading Compleated.");
+                //Debug.Print("Loading Compleated.");
                 _loadBarsTerminate = true;
 
-                if(onDataLoaded != null)
+                if (onDataLoaded != null)
                     onDataLoaded.Invoke(this);
 
                 if (onNewBar != null)
                     MainData.TraceNewBar(On_NewBar);
-                
+
                 SimulatePatterns(Symbol, MainTimeFrame);
 
             }
         }
-        protected void On_NewBar(BarOpenedEventArgs e) {
-            Debug.Print("New Bar Opened At {0}  Incoming From Symbol {1} in TimeFrame {2}", e.Bars.LastBar.OpenTime.ToString("dd/MM/yyyy:HHmmss"), e.Bars.SymbolName, e.Bars.TimeFrame.ToString());
+        protected void On_NewBar(BarOpenedEventArgs e)
+        {
+            //Debug.Print("New Bar Opened At {0}  Incoming From Symbol {1} in TimeFrame {2}", e.Bars.LastBar.OpenTime.ToString("dd/MM/yyyy:HHmmss"), e.Bars.SymbolName, e.Bars.TimeFrame.ToString());
             onNewBar.Invoke(this);
         }
 
@@ -815,7 +925,7 @@ namespace cAlgo.Robots
                 for (int _index = Periods; _index > 1; _index--)
                 {
                     SegmentTracer.Calculate(MainData.BarsData.Last(_index - 1), MainData.BarsData.Last(_index), false);
-                    
+
                     Calculate();
 
                     if (_index - 2 > 0)
@@ -1599,14 +1709,14 @@ namespace cAlgo.Robots
 
 
 
-                //if (pattern.DrawableArea.InArea(TradePrice) || pattern.Compleated)
-                //{
-                //    pattern.Drawable = true;
-                //}
-                //else
-                //{
-                //    pattern.Drawable = false;
-                //}
+                if (pattern.DrawableArea.InArea(TradePrice) || pattern.Compleated)
+                {
+                    pattern.Drawable = true;
+                }
+                else
+                {
+                    pattern.Drawable = false;
+                }
                 pattern.Drawable = true;
                 DrawPattern(pattern, Chart, Symbol.Bid);
             }
