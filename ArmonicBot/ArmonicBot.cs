@@ -403,7 +403,8 @@ namespace cAlgo.Robots
 
         public event Action OnClickFind;
 
-        public class ProgressBar : Canvas {
+        public class ProgressBar : Canvas
+        {
             private Rectangle border, back, front;
             private int _value;
 
@@ -415,14 +416,17 @@ namespace cAlgo.Robots
             public int MaxValue { private get; set; }
             public int Value
             {
-                set {
-                    _value = value; 
-                    if (front != null) front.Width = (_value * this.Width) / MaxValue; 
-                    Reflect(); 
-                } 
-            } 
+                set
+                {
+                    _value = value;
+                    if (front != null)
+                        front.Width = (_value * this.Width) / MaxValue;
+                    Reflect();
+                }
+            }
 
-            public ProgressBar() {
+            public ProgressBar()
+            {
                 BackColor = (Color)DefaultStyles.ScrollViewerStyle.Get(ControlProperty.BackgroundColor);
                 ForeColor = (Color)DefaultStyles.ScrollViewerStyle.Get(ControlProperty.ForegroundColor);
                 BorderColor = (Color)DefaultStyles.ScrollViewerStyle.Get(ControlProperty.BorderColor);
@@ -437,8 +441,9 @@ namespace cAlgo.Robots
                 Value = 0;
                 MaxValue = 1;
             }
-            
-            public void Reflect() {
+
+            public void Reflect()
+            {
                 border.Width = this.Width;
                 border.Height = this.Height;
                 border.Left = this.Left;
@@ -463,7 +468,7 @@ namespace cAlgo.Robots
                 front.RadiusY = this.RadiusY;
                 front.FillColor = this.ForeColor;
             }
-            
+
         }
         public GUI(Chart chart)
         {
@@ -475,16 +480,18 @@ namespace cAlgo.Robots
             };
             StartButton.Click += OnButtonClick;
 
-            WatchListPanel = new StackPanel {
+            WatchListPanel = new StackPanel 
+            {
                 Width = 150,
                 BackgroundColor = Color.FromArgb(30, Color.Blue),
                 Dock = Dock.Left,
                 HorizontalAlignment = HorizontalAlignment.Left,
-                IsEnabled=true,
-                IsHitTestVisible=true
+                IsEnabled = true,
+                IsHitTestVisible = true
             };
 
-            LoadingBar = new ProgressBar {
+            LoadingBar = new ProgressBar 
+            {
                 Dock = Dock.Top,
                 VerticalAlignment = VerticalAlignment.Top,
                 Width = Chart.Width / 1.5,
@@ -503,10 +510,15 @@ namespace cAlgo.Robots
             Chart.AddControl(LoadingBar);
         }
 
-        public void AddWatchlists(Watchlists list) {
+        public void AddWatchlists(Watchlists list)
+        {
             WatchlistCombo.Clear();
-            foreach (Watchlist entry in list) {
-                WatchlistCombo.Add(new CheckBox() { Text = entry.Name }); 
+            foreach (Watchlist entry in list)
+            {
+                WatchlistCombo.Add(new CheckBox 
+                {
+                    Text = entry.Name
+                });
                 WatchListPanel.AddChild(WatchlistCombo[WatchlistCombo.Count - 1]);
             }
         }
@@ -1717,7 +1729,7 @@ namespace cAlgo.Robots
                 {
                     pattern.Drawable = false;
                 }
-                pattern.Drawable = true;
+                //pattern.Drawable = true;
                 DrawPattern(pattern, Chart, Symbol.Bid);
             }
         }
