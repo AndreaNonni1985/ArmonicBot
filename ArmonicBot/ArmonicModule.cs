@@ -243,16 +243,31 @@ namespace cAlgo {
         }
 
 
+
+        public void TraceNewTick(Action<TicksTickEventArgs> listner) {
+            if (TicksData != null) {
+                TicksData.Tick += listner;
+            }
+        }
         public void RequestTicks(DateTime ticksFromDateTime, bool __async = false) {
             if (!__async) {
                 //Richiedo i dati dei tick in maniera sincrona
                 TicksData = _marketdata.GetTicks(_symbol.Name);
             }
             else {
-                AsyncTickLoading(true);
+                AsyncTicksLoading(true);
             }
         }
-        private void AsyncTickLoading(bool first = false) {
+        private void AsyncTicksLoading(bool first = false) {
+
+        }
+        private void AsyncEndTicksLoaded(Bars bars) {
+
+        }
+        private void AsyncEndMoreTicksLoaded(TicksHistoryLoadedEventArgs obj) {
+
+        }
+        private void RaiseTicksLoadCompleted() {
 
         }
     }
@@ -321,6 +336,26 @@ namespace cAlgo {
 
         }
 
+        private class Result {
+            public string Key;
+            private Button PatternButton;
+            private Panel DestinationPanel; 
+            public Result(Panel destinationPanel, ArmonicPattern pattern ) {
+                DestinationPanel = destinationPanel;
+                PatternButton = new Button() {
+                    Text = string.Format("{0} - {1} - {2}", pattern.Type.ToString(), pattern.Mode.ToString(), pattern.XA_Period.ToString()),
+                    Margin = 3,
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    IsHitTestVisible=true
+                };
+                DestinationPanel.AddChild(PatternButton);
+                Key = pattern.GetKey();
+            }
+            public void Destoy() {
+                DestinationPanel.RemoveChild(PatternButton);
+            }
+        }
+
         private Chart Chart;
         private Watchlists Watchlists;
 
@@ -328,6 +363,8 @@ namespace cAlgo {
         private StackPanel WatchListPanel;
         private StackPanel SymbolPanel;
         private StackPanel ConfigPanel;
+        private StackPanel MainPanel;
+        private ScrollViewer ScrollMain; 
         //private StackPanel OptionPanel;
         //private Panel MainPanel;
         //private Button StartButton;
@@ -335,6 +372,9 @@ namespace cAlgo {
         private List<CheckBox> WatchlistChecks;
         private List<CheckBox> SymbolChecks;
         private List<TextBlock> SymbolWatchlistTitles;
+        private List<Result> Results;
+        private DockPanel Framework;
+        //private Grid GridResult;
 
         public event Action OnClickStart;
 
@@ -347,6 +387,7 @@ namespace cAlgo {
             WatchlistChecks = new List<CheckBox>();
             SymbolChecks = new List<CheckBox>();
             SymbolWatchlistTitles = new List<TextBlock>();
+            Results = new List<Result>();
 
             //WATCHLIST
             StackPanel WatchListPanel = new StackPanel {
@@ -427,8 +468,19 @@ namespace cAlgo {
             OptionPanel.AddChild(ConfigButton);
 
             ////EMPTY
-            //StackPanel MainPanel = new StackPanel {
-            //};
+            MainPanel = new StackPanel {
+            };
+
+            ScrollMain = new ScrollViewer() {
+                Content = MainPanel,
+                Width = 240,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                VerticalAlignment = VerticalAlignment.Top,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Opacity = 0.7,
+                //IsHitTestVisible=false
+            };
+            
 
             //LOADING
             LoadingBar = new ProgressBar {
@@ -442,16 +494,95 @@ namespace cAlgo {
             };
 
             //FRAMEWORK
-            DockPanel Framework = new DockPanel();
+            Framework = new DockPanel();
             Framework.AddChild(OptionPanel);
             Framework.AddChild(ConfigPanel);
             Framework.AddChild(LoadingBar);
-            
+            //Framework.AddChild(MainPanel);
+            Chart.AddControl(ScrollMain);
 
             //CHART
             Chart.AddControl(Framework);
         }
+        public void AddResult(ArmonicPattern pattern) {
+            Result result = new Result(MainPanel, pattern);
+            Results.Add(result);
+        }
+        public void DeleteResult(ArmonicPattern pattern) {
+            Result result;
+            result = Results.FirstOrDefault(fnd => fnd.Key == pattern.GetKey());
+            if (result != null) {
+                result.Destoy();
+                Results.Remove(result);
+            }
+        }
 
+        public void DrawGrid(ArmonicPattern[] patterns) {
+            ////int i = 0;
+
+            ////if (GridResult != null) {
+            ////    Chart.RemoveControl(GridResult);
+            ////}
+
+            ////GridResult = new Grid() {
+            ////    BackgroundColor = Color.LightCyan,
+            ////    ShowGridLines = true
+            ////};
+
+            ////GridResult.AddColumns(3);
+            ////GridResult.Columns[0].SetWidthInStars(1);
+            ////GridResult.Columns[1].SetWidthToAuto();
+            ////GridResult.Columns[2].SetWidthInPixels(40);
+            ////TextBlock HeadType = new TextBlock {
+            ////    Text = "Pattern Type",
+            ////    FontSize = 12,
+            ////    Margin = 8
+            ////};
+            ////TextBlock HeadMode = new TextBlock {
+            ////    Text = "Pattern Direction",
+            ////    FontSize = 12,
+            ////    Margin = 8
+            ////};
+            ////TextBlock HeadCompleated = new TextBlock {
+            ////    Text = "Compleated",
+            ////    FontSize = 12,
+            ////    Margin = 8
+            ////};
+            
+            ////GridResult.AddRow();
+            ////GridResult.AddChild(HeadType, 0, 0);
+            ////GridResult.AddChild(HeadMode, 0, 1);
+            ////GridResult.AddChild(HeadCompleated, 0, 2);
+            
+            
+
+
+            ////for (i = 0;  i == patterns.Count() - 1 ; i++) {
+            ////    TextBlock Type = new TextBlock {
+            ////        Text = patterns[i].Type.ToString(),
+            ////        FontSize = 12,
+            ////        Margin = 8
+            ////    };
+            ////    TextBlock Mode = new TextBlock {
+            ////        Text = patterns[i].Mode.ToString(),
+            ////        FontSize = 12,
+            ////        Margin = 8
+            ////    };
+            ////    TextBlock Compleated = new TextBlock {
+            ////        Text = patterns[i].Compleated == true ? "Yes" : "No",
+            ////        FontSize = 12,
+            ////        Margin = 8
+            ////    };
+            ////    GridResult.AddRow();
+            ////    GridResult.AddChild(Type, i+1, 0);
+            ////    GridResult.AddChild(Mode, i+1, 1);
+            ////    GridResult.AddChild(Compleated, i+1, 2);
+
+            ////}
+            ////GridResult.Opacity = 0.1;
+            ////Framework.AddChild(GridResult);
+
+        }
         public void AddSymbols(List<String> SymbolList, string WatchlistName) {
             TextBlock TitleCheckSymbolWatchlist = new TextBlock {
                 Text = WatchlistName,
@@ -486,7 +617,7 @@ namespace cAlgo {
             }
         }
         private void OnButtonClick(ButtonClickEventArgs obj) {
-            switch(obj.Button.Text) {
+            switch (obj.Button.Text) {
                 case ("Option"):
                     ConfigPanel.IsVisible = !ConfigPanel.IsVisible;
                     break;
@@ -497,9 +628,14 @@ namespace cAlgo {
         }
     }
 
-
+    public class ArmonicPatternEventArgs {
+        public PatternEvent EventValue;
+    }
     public class ArmonicPattern {
         //private ArmonicBot Bot;
+        public string Key;
+        public Symbol Symbol;
+        public TimeFrame TimeFrame;
         public Segment XA;
         public Segment AB;
         public Segment BC;
@@ -543,58 +679,17 @@ namespace cAlgo {
         public int PositionID;
         public double EnterPrice;
         public double Volume;
-        public ArmonicPattern(Segment bornSegment) {
+        public ArmonicPattern(Symbol symbol, TimeFrame timeframe , Segment bornSegment) {
             //Bot = bot;
+            Symbol = symbol;
+            TimeFrame = timeframe;
             Reset(bornSegment);
         }
         public ArmonicPattern(ArmonicPattern PatternToCopy) {
-            //Bot = bot;
-            XA = PatternToCopy.XA;
-            AB = PatternToCopy.AB;
-            BC = PatternToCopy.BC;
-            BC_OverA = PatternToCopy.BC_OverA;
-            CD_OverB = PatternToCopy.CD_OverB;
-            CD = PatternToCopy.CD;
-            IdealCD = PatternToCopy.IdealCD;
-            AB_Percent = PatternToCopy.AB_Percent;
-            BC_Percent = PatternToCopy.BC_Percent;
-            CD_Percent = PatternToCopy.CD_Percent;
-            XA_Period = PatternToCopy.XA_Period;
-            AB_Period = PatternToCopy.AB_Period;
-            BC_Period = PatternToCopy.BC_Period;
-            CD_Period = PatternToCopy.CD_Period;
-            Type = PatternToCopy.Type;
-            Mode = PatternToCopy.Mode;
-            Step = PatternToCopy.Step;
-            PRZ = PatternToCopy.PRZ;
-            SLZ = PatternToCopy.SLZ;
-            T1Z = PatternToCopy.T1Z;
-            T2Z = PatternToCopy.T2Z;
-            DrawableArea = PatternToCopy.DrawableArea;
-            CPointValidArea = PatternToCopy.CPointValidArea;
-            CPointOverA = PatternToCopy.CPointOverA;
-            DPointOverB = PatternToCopy.DPointOverB;
-            Compleated = PatternToCopy.Compleated;
-            Failed = PatternToCopy.Failed;
-            Succeed = PatternToCopy.Succeed;
-            Drawable = PatternToCopy.Drawable;
-            StopLoss = PatternToCopy.StopLoss;
-            Target1 = PatternToCopy.Target1;
-            Target2 = PatternToCopy.Target2;
-            Target1Compleated = PatternToCopy.Target1Compleated;
-            Target2Compleated = PatternToCopy.Target2Compleated;
-            Closed = PatternToCopy.Closed;
-            StopLossPips = PatternToCopy.StopLossPips;
-            Target1Pips = PatternToCopy.Target1Pips;
-            Target2Pips = PatternToCopy.Target2Pips;
-            Enter = PatternToCopy.Enter;
-            RiskReward = PatternToCopy.RiskReward;
-            PositionID = PatternToCopy.PositionID;
-            EnterPrice = PatternToCopy.EnterPrice;
-            Volume = PatternToCopy.Volume;
+            Update(PatternToCopy);
         }
         public void Reset(Segment bornSegment) {
-
+            Key = CreateKey(bornSegment);
             XA = bornSegment;
             AB = null;
             BC = null;
@@ -639,8 +734,55 @@ namespace cAlgo {
             EnterPrice = 0;
             Volume = 0;
         }
-
-
+        public void Update(ArmonicPattern PatternToCopy) {
+            //Bot = bot;
+            Symbol = PatternToCopy.Symbol;
+            TimeFrame = PatternToCopy.TimeFrame;
+            Key = PatternToCopy.Key;
+            XA = PatternToCopy.XA;
+            AB = PatternToCopy.AB;
+            BC = PatternToCopy.BC;
+            BC_OverA = PatternToCopy.BC_OverA;
+            CD_OverB = PatternToCopy.CD_OverB;
+            CD = PatternToCopy.CD;
+            IdealCD = PatternToCopy.IdealCD;
+            AB_Percent = PatternToCopy.AB_Percent;
+            BC_Percent = PatternToCopy.BC_Percent;
+            CD_Percent = PatternToCopy.CD_Percent;
+            XA_Period = PatternToCopy.XA_Period;
+            AB_Period = PatternToCopy.AB_Period;
+            BC_Period = PatternToCopy.BC_Period;
+            CD_Period = PatternToCopy.CD_Period;
+            Type = PatternToCopy.Type;
+            Mode = PatternToCopy.Mode;
+            Step = PatternToCopy.Step;
+            PRZ = PatternToCopy.PRZ;
+            SLZ = PatternToCopy.SLZ;
+            T1Z = PatternToCopy.T1Z;
+            T2Z = PatternToCopy.T2Z;
+            DrawableArea = PatternToCopy.DrawableArea;
+            CPointValidArea = PatternToCopy.CPointValidArea;
+            CPointOverA = PatternToCopy.CPointOverA;
+            DPointOverB = PatternToCopy.DPointOverB;
+            Compleated = PatternToCopy.Compleated;
+            Failed = PatternToCopy.Failed;
+            Succeed = PatternToCopy.Succeed;
+            Drawable = PatternToCopy.Drawable;
+            StopLoss = PatternToCopy.StopLoss;
+            Target1 = PatternToCopy.Target1;
+            Target2 = PatternToCopy.Target2;
+            Target1Compleated = PatternToCopy.Target1Compleated;
+            Target2Compleated = PatternToCopy.Target2Compleated;
+            Closed = PatternToCopy.Closed;
+            StopLossPips = PatternToCopy.StopLossPips;
+            Target1Pips = PatternToCopy.Target1Pips;
+            Target2Pips = PatternToCopy.Target2Pips;
+            Enter = PatternToCopy.Enter;
+            RiskReward = PatternToCopy.RiskReward;
+            PositionID = PatternToCopy.PositionID;
+            EnterPrice = PatternToCopy.EnterPrice;
+            Volume = PatternToCopy.Volume;
+        } 
         public string Report() {
             string result = "";
             result += string.Format("INIZIO ----------------------------------------------");
@@ -663,7 +805,13 @@ namespace cAlgo {
             return result;
         }
         public string GetKey() {
-            return String.Format("X{0}_", XA.FromOpenTime.ToString("dd/MM/yyyy:HHmmss"));
+            return String.Format("Key:{0}_", XA.FromOpenTime.ToString("dd/MM/yyyy:HHmmss"));
+        }
+        public string CreateKey() {
+            return String.Format("Key:{0}_", XA.FromOpenTime.ToString("dd/MM/yyyy:HHmmss"));
+        }
+        public string CreateKey(Segment segment) {
+            return String.Format("Key:{0}_", segment.FromOpenTime.ToString("dd/MM/yyyy:HHmmss"));
         }
     }
     //}
@@ -782,18 +930,23 @@ namespace cAlgo {
         private readonly TimeFrame PrecisionTimeFrame;
         private readonly SegmentTracerEngine SegmentTracer;
         private readonly Chart Chart;
-        private bool _loadBarsTerminate = false;
-
-        public List<ArmonicPattern> PatternList;
+        private bool _loadTerminate = false;
+        private bool _mainSymbol = false;
+        private bool _signalPatternEvent = false;
+        private List<ArmonicPattern> PatternList;
         public DataFlow MainData;
         public DataFlow PrecisionData;
         public int Periods { get; private set; }
 
+        //public event Action<ArmonicPattern> onNewPattern;
+        //public event Action<ArmonicPattern> onDeletePattern;
+        //public event Action<ArmonicPattern, ArmonicPatternEventArgs> onUpdatePattern;
+
         private event Action<ArmonicFinderEngine, double> onDataLoading;
         private event Action<ArmonicFinderEngine> onDataLoaded;
-        private event Action<ArmonicFinderEngine> onNewBar;
+        public event Action<ArmonicPattern, PatternEvent> onPatternStateChanged;
 
-        public ArmonicFinderEngine(MarketData marketdata, Symbol symbol, TimeFrame timeframe, Chart chart, int periods) {
+        public ArmonicFinderEngine(MarketData marketdata, Symbol symbol, TimeFrame timeframe, Chart chart, int periods, bool mainSymbol = false) {
             int MinutesFineCalc;
 
             Periods = periods;
@@ -802,23 +955,22 @@ namespace cAlgo {
             MainTimeFrame = timeframe;
             MinutesFineCalc = Utils.TimeframeToMinutes(timeframe);
             PrecisionTimeFrame = Utils.MinutesToTimeFrame(MinutesFineCalc / GlobalParameter.SubPeriods);
-
+            _mainSymbol = mainSymbol;
             PatternList = new List<ArmonicPattern>();
             SegmentTracer = new SegmentTracerEngine(this, GlobalParameter.DrawSwing);
             MainData = new DataFlow(marketdata, Symbol, MainTimeFrame);
             PrecisionData = new DataFlow(marketdata, Symbol, PrecisionTimeFrame);
         }
 
-        public void Initialize(Action<ArmonicFinderEngine> loadedListner = null, Action<ArmonicFinderEngine, double> loadingListner = null, Action<ArmonicFinderEngine> newBarListner = null) {
+        public void Initialize(Action<ArmonicFinderEngine> loadedListner = null, Action<ArmonicFinderEngine, double> loadingListner = null) {
             Debug.Print("Initializing Engine for Symbol {0} {1}", Symbol.Name, MainTimeFrame.ToString());
             MainData.RequestBars(Periods, true, OnBarsLoaded, OnBarsLoading);
             PrecisionData.RequestBars(Periods * GlobalParameter.SubPeriods, true, OnBarsLoaded, OnBarsLoading);
+
             if (loadingListner != null)
                 onDataLoading += loadingListner;
             if (loadedListner != null)
                 onDataLoaded += loadedListner;
-            if (newBarListner != null)
-                onNewBar += newBarListner;
         }
         protected void OnBarsLoading(double percentage, int count, string SymbolName) {
             int totBars = 0;
@@ -836,55 +988,172 @@ namespace cAlgo {
         protected void OnBarsLoaded(DataFlow sender) {
             if (MainData.isBarLoadCompleted && PrecisionData.isBarLoadCompleted) {
                 //Debug.Print("Loading Compleated.");
-                _loadBarsTerminate = true;
-
                 if (onDataLoaded != null)
                     onDataLoaded.Invoke(this);
 
-                if (onNewBar != null)
-                    MainData.TraceNewBar(On_NewBar);
+                
+                MainData.RequestTicks(MainData.BarsData.LastBar.OpenTime);
+                
+                
 
                 SimulatePatterns(Symbol, MainTimeFrame);
 
-            }
-        }
-        protected void On_NewBar(BarOpenedEventArgs e) {
-            //Debug.Print("New Bar Opened At {0}  Incoming From Symbol {1} in TimeFrame {2}", e.Bars.LastBar.OpenTime.ToString("dd/MM/yyyy:HHmmss"), e.Bars.SymbolName, e.Bars.TimeFrame.ToString());
-            onNewBar.Invoke(this);
-        }
-
-        private void LoadPatterns(Symbol RequestSymbol, TimeFrame RequestTimeFrame) {
-            DateTime FromDate, ToDate;
-            int _index = 0;
-            if (_loadBarsTerminate && MainData.BarsData.Count() >= Periods) {
-                //creo la segmentazione
-                for (_index = Periods; _index > 1; _index--) {
-                    SegmentTracer.Calculate(MainData.BarsData.Last(_index - 1), MainData.BarsData.Last(_index), false);
+                if (!_mainSymbol) {
+                    MainData.TraceNewBar(On_NewBar);
+                    MainData.TraceNewTick(On_NewTick);
                 }
 
-                //cerco fino al punto "C" all'interno della segmentazione
-                Calculate();
-
-
-                //effettuo il controllo di precisione che cerca il punto di completamento "D" e il proseguo del pattern
-                //questo controllo dovrebbe essere fatto per singolo pattern a partire dal punto "C" fino alla fine
-                //va passata alla funzione un parametro opzionale in più che sarebbe la chiave del patter corrente
-                //dentro alla funzione va filtrata questa condizione
-                for (_index = 0; _index < PatternList.Count(); _index++) {
-                    FromDate = PatternList[_index].BC.ToOpenTime;
-                    ToDate = ToDate = MainData.BarsData.LastBar.OpenTime;
-                    foreach (Bar FineBar in PrecisionData.BarsData.Where(data => (data.OpenTime >= FromDate) && (data.OpenTime <= ToDate))) {
-                        FineCalculate(true, 0, FineBar.OpenTime, PatternList[_index], FineBar);
-                    }
-                }
-                FineCalculate(false, RequestSymbol.Bid, MainData.BarsData.Last(0).OpenTime);
+                _loadTerminate = true;
             }
         }
+        public void On_NewBar(BarOpenedEventArgs e = null) {
+            //bool ok = false;
+            //ArmonicPattern[] tmpList;
+            if (!_loadTerminate) return;
+
+            if (e != null)
+                Debug.Print("New Bar Opened At {0}  Incoming From Symbol {1} in TimeFrame {2}", e.Bars.LastBar.OpenTime.ToString("dd/MM/yyyy:HHmmss"), e.Bars.SymbolName, e.Bars.TimeFrame.ToString());
+
+
+            // calcola i segmenti
+            SegmentTracer.Calculate(MainData.BarsData.LastBar, MainData.BarsData.Last(1), false);
+
+            //// copia l'array dei pattern prima del calcolo in un nuovo Array
+            //tmpList = new ArmonicPattern[PatternList.Count()];
+            //PatternList.CopyTo(tmpList);
+
+            Calculate();
+            //confronta gli array e genera eventi per Aggiunta , Cancellzaione , Modifica (con oggetto di modifica)
+            //scorri pattern calcolati
+            //foreach (ArmonicPattern pattern in PatternList) {
+            //    string patternkey = pattern.GetKey();
+            //    //cerca pattern temporanei per chiave
+            //    ok = false;
+            //    foreach (ArmonicPattern tmpPattern in tmpList) {
+            //        string tmpkey = tmpPattern.GetKey();
+            //        if (tmpkey==patternkey) {
+            //            ok = true;
+            //            break;
+            //        }
+            //    } 
+            //    if (!ok) {
+            //        //se non trovi segnala aggiunta
+            //        if (onNewPattern != null)
+            //            onNewPattern.Invoke(pattern);
+            //    }
+            //}
+            ////cerca pattern temporanei per chiave
+            //foreach (ArmonicPattern tmpPattern in tmpList) {
+            //    string tmpkey = tmpPattern.GetKey();
+            //    //cerca nei pattern calcolati se lo trovi per chiave
+            //    //se non lo trovi segnala elimina
+            //    ok = false;
+            //    foreach (ArmonicPattern pattern in PatternList) {
+            //        string patternkey = pattern.GetKey();
+            //        if (tmpkey == patternkey) {
+            //            ok = true;
+            //            break;
+            //        }
+            //    }
+            //    if (!ok) {
+            //        //se non lo trovi segnala elimina
+            //        if (onDeletePattern != null)
+            //            onDeletePattern.Invoke(tmpPattern);
+            //    }
+            //}
+        }
+        public void On_NewTick(TicksTickEventArgs e = null) {
+            //Debug.Print("New Tick");
+            ArmonicPattern[] oldList;
+            ArmonicPattern oldPattern;
+            string tmpKey;
+
+            if (!_loadTerminate) return;
+
+            //oldList = new ArmonicPattern[PatternList.Count()];
+            //int i = 0;
+            //foreach (ArmonicPattern pattern in PatternList) {
+            //    oldList[i] = new ArmonicPattern(pattern);
+            //    i++;
+            //}
+            
+
+            FineCalculate(false, Symbol.Bid, MainData.BarsData.LastBar.OpenTime);
+
+            //foreach (ArmonicPattern newPattern in PatternList.Where(objNew => objNew.Closed == false)) {
+            //    tmpKey = newPattern.GetKey();
+            //    oldPattern = oldList.First(objOld => objOld.GetKey() == tmpKey);
+
+            //    if (oldPattern == null) {
+
+            //        //si aggiunge un pattern
+            //        if (onNewPattern != null && newPattern.Drawable)
+            //            onNewPattern.Invoke(newPattern);
+            //    } else {
+            //        if (oldPattern.Drawable == false && newPattern.Drawable == true) {
+            //            if (onNewPattern != null)
+            //                onNewPattern.Invoke(newPattern);
+            //        }
+            //        else if (oldPattern.Drawable == true && newPattern.Drawable == false) {
+            //            if (onDeletePattern != null)
+            //                onDeletePattern.Invoke(newPattern);
+            //        }
+            //        else {
+            //            if (newPattern.Drawable) {
+            //                ArmonicPatternEventArgs PatternArgs = new ArmonicPatternEventArgs();
+            //                PatternArgs.EventValue = PatternEvent.NoEvent;
+
+            //                if (oldPattern.Compleated != newPattern.Compleated) {
+            //                    PatternArgs.EventValue = PatternEvent.Compleated;
+            //                }
+            //                if (oldPattern.Target1Compleated != newPattern.Target1Compleated) {
+            //                    PatternArgs.EventValue = PatternEvent.Target1;
+            //                }
+            //                if (oldPattern.Target2Compleated != newPattern.Target2Compleated) {
+            //                    PatternArgs.EventValue = PatternEvent.Target2;
+            //                }
+            //                if (onUpdatePattern != null)
+            //                    onUpdatePattern.Invoke(newPattern, PatternArgs);
+            //            }
+            //        }
+            //    }
+            //}
+          
+
+        }
+
+        //private void LoadPatterns(Symbol RequestSymbol, TimeFrame RequestTimeFrame) {
+        //    DateTime FromDate, ToDate;
+        //    int _index = 0;
+        //    if (_loadTerminate && MainData.BarsData.Count() >= Periods) {
+        //        //creo la segmentazione
+        //        for (_index = Periods; _index > 1; _index--) {
+        //            SegmentTracer.Calculate(MainData.BarsData.Last(_index - 1), MainData.BarsData.Last(_index), false);
+        //        }
+
+        //        //cerco fino al punto "C" all'interno della segmentazione
+        //        Calculate();
+
+
+        //        //effettuo il controllo di precisione che cerca il punto di completamento "D" e il proseguo del pattern
+        //        //questo controllo dovrebbe essere fatto per singolo pattern a partire dal punto "C" fino alla fine
+        //        //va passata alla funzione un parametro opzionale in più che sarebbe la chiave del patter corrente
+        //        //dentro alla funzione va filtrata questa condizione
+        //        for (_index = 0; _index < PatternList.Count(); _index++) {
+        //            FromDate = PatternList[_index].BC.ToOpenTime;
+        //            ToDate = ToDate = MainData.BarsData.LastBar.OpenTime;
+        //            foreach (Bar FineBar in PrecisionData.BarsData.Where(data => (data.OpenTime >= FromDate) && (data.OpenTime <= ToDate))) {
+        //                FineCalculate(true, 0, FineBar.OpenTime, PatternList[_index], FineBar);
+        //            }
+        //        }
+        //        FineCalculate(false, RequestSymbol.Bid, MainData.BarsData.Last(0).OpenTime);
+        //    }
+        //}
 
         private void SimulatePatterns(Symbol RequestSymbol, TimeFrame RequestTimeFrame) {
             DateTime FromDate, ToDate;
 
-            if (_loadBarsTerminate && MainData.BarsData.Count() >= Periods) {
+            if (MainData.BarsData.Count() >= Periods) {
                 for (int _index = Periods; _index > 1; _index--) {
                     SegmentTracer.Calculate(MainData.BarsData.Last(_index - 1), MainData.BarsData.Last(_index), false);
 
@@ -908,6 +1177,12 @@ namespace cAlgo {
                 FineCalculate(false, RequestSymbol.Bid, MainData.BarsData.Last(0).OpenTime);
 
             }
+
+            //scorri tutti i pattern e segnala gli eventi di aggiunta
+            foreach (ArmonicPattern pattern in PatternList.Where(obj => obj.Drawable==true && obj.Closed==false)) {
+                onPatternStateChanged.Invoke(pattern,PatternEvent.Add);
+            }
+            _signalPatternEvent = true;
         }
 
 
@@ -987,6 +1262,8 @@ namespace cAlgo {
                 _segment = pattern.XA;
                 _segment.Extend(BC.ToPrice, BC.ToOpenTime);
                 // se il pattern era in lista allora devi eliminarlo.
+                if (_signalPatternEvent)
+                    onPatternStateChanged.Invoke(pattern, PatternEvent.Remove);
                 DeletePatternInList(pattern);
                 pattern.Reset(_segment);
                 pattern.XA_Period = SegmentPeriod(pattern.XA);
@@ -998,6 +1275,8 @@ namespace cAlgo {
                     case PatternType.Undefined:
                         //IL CALCOLO NON SEGNALA UN OBIETTIVO, LA RICERCA DI C PROSEGUE CON IL PROSSIMO SEGMENTO 
                         //un eventuale pattern già registrato per la gamba XA va eliminato
+                        if (_signalPatternEvent)
+                            onPatternStateChanged.Invoke(pattern, PatternEvent.Remove);
                         DeletePatternInList(pattern);
 
                         return true;
@@ -1142,7 +1421,7 @@ namespace cAlgo {
             }
 
         }
-        public void Calculate() {
+        private void Calculate() {
             int _dimensionArea;
             Segment _startSegment;
             Segment _measureSegment;
@@ -1168,7 +1447,7 @@ namespace cAlgo {
                 //il primo segmento rappresenta inizialmente la gamba XA
                 _startSegment = new Segment(SegmentTracer.SegmentList[_index].FromPrice, SegmentTracer.SegmentList[_index].ToPrice, SegmentTracer.SegmentList[_index].FromOpenTime, SegmentTracer.SegmentList[_index].ToOpenTime);
                 //creo un nuovo pattern assegnando la gamba iniziale XA
-                Pattern = new ArmonicPattern(_startSegment);
+                Pattern = new ArmonicPattern(Symbol, MainTimeFrame, _startSegment);
                 Pattern.XA_Period = SegmentPeriod(Pattern.XA);
                 //popolo l'area dei segmenti a destra da analizzare rispetto al segmento che stò analizzando
                 Area = new Segment[_dimensionArea];
@@ -1269,6 +1548,8 @@ namespace cAlgo {
                             //creo il segmento per la misurazione del ritracciamento BC
                             _measureSegment = new Segment(Pattern.AB.ToPrice, _segment.ToPrice, Pattern.AB.ToOpenTime, _segment.ToOpenTime);
                             if (VerifyAndUpdateBC(Pattern, _measureSegment) == false) {
+                                if (_signalPatternEvent)
+                                    onPatternStateChanged.Invoke(Pattern, PatternEvent.Remove);
                                 DeletePatternInList(Pattern);
                                 _stopFind = true;
                             }
@@ -1293,6 +1574,8 @@ namespace cAlgo {
                             // controllo se il punto D è arrivato oltre lo StopLoss
                             // in questo caso devo eliminare il pattern
                             if (_segment.ToPrice < Pattern.StopLoss && Pattern.Mode == PatternMode.Bullish || _segment.ToPrice > Pattern.StopLoss && Pattern.Mode == PatternMode.Bearish) {
+                                if (_signalPatternEvent)
+                                    onPatternStateChanged.Invoke(Pattern, PatternEvent.Remove);
                                 DeletePatternInList(Pattern);
                                 _stopFind = true;
                             }
@@ -1331,6 +1614,8 @@ namespace cAlgo {
                                     Pattern.XA_Period = SegmentPeriod(Pattern.XA);
                                     if (VerifyAndUpdateAB(Pattern, _newAB) == false) {
                                         //B invalida la gamba XA, comporta che : dal segmento iniziale non può più nascere nessun pattern quindi interrompo la ricerca e passo al segmento successivo
+                                        if (_signalPatternEvent)
+                                            onPatternStateChanged.Invoke(Pattern, PatternEvent.Remove);
                                         DeletePatternInList(Pattern);
                                         _stopFind = true;
                                         break;
@@ -1352,6 +1637,8 @@ namespace cAlgo {
                                     }
 
                                     if (VerifyAndUpdateBC(Pattern, _newBC) == false) {
+                                        if (_signalPatternEvent)
+                                            onPatternStateChanged.Invoke(Pattern, PatternEvent.Remove);
                                         DeletePatternInList(Pattern);
                                         _stopFind = true;
                                     }
@@ -1367,6 +1654,8 @@ namespace cAlgo {
                                     Pattern.XA_Period = SegmentPeriod(Pattern.XA);
                                     if (VerifyAndUpdateAB(Pattern, _newAB) == false) {
                                         //B invalida la gamba XA, comporta che : dal segmento iniziale non può più nascere nessun pattern quindi interrompo la ricerca e passo al segmento successivo
+                                        if (_signalPatternEvent)
+                                            onPatternStateChanged.Invoke(Pattern, PatternEvent.Remove);
                                         DeletePatternInList(Pattern);
                                         _stopFind = true;
                                         break;
@@ -1389,6 +1678,8 @@ namespace cAlgo {
                                         }
                                     }
                                     if (VerifyAndUpdateBC(Pattern, _newBC) == false) {
+                                        if (_signalPatternEvent)
+                                            onPatternStateChanged.Invoke(Pattern, PatternEvent.Remove);
                                         DeletePatternInList(Pattern);
                                         _stopFind = true;
                                     }
@@ -1412,7 +1703,7 @@ namespace cAlgo {
                 DrawPattern(PatternList[_index], Chart, Symbol.Bid);
             }
         }
-        public void FineCalculate(bool initialize, double price, DateTime openTime, ArmonicPattern justThisPattern = null, Bar bar = new Bar()) {
+        private void FineCalculate(bool initialize, double price, DateTime openTime, ArmonicPattern justThisPattern = null, Bar bar = new Bar()) {
             ArmonicPattern pattern;
             double TradePrice;
             //bool trigCompleated = false;
@@ -1428,6 +1719,8 @@ namespace cAlgo {
                 //SE IL PREZZO SUPERA IL PUNTO C ED IL PATTENR NON E' STATO COMPLETATO ALLORA DEVO ELIMINARE QUESTO PATTERN
                 if ((!initialize ? price : bar.High) > pattern.BC.ToPrice && pattern.Mode == PatternMode.Bullish || (!initialize ? price : bar.Low) < pattern.BC.ToPrice && pattern.Mode == PatternMode.Bearish) {
                     if (pattern.Compleated == false) {
+                        if (_signalPatternEvent)
+                            onPatternStateChanged.Invoke(pattern, PatternEvent.Remove);
                         DeletePatternInList(pattern);
                         continue;
                     }
@@ -1440,8 +1733,8 @@ namespace cAlgo {
                             pattern.Failed = true;
                         }
                         pattern.Closed = true;
-                        //registra statistiche
-                        //Statistics.Add(pattern);
+                        if (_signalPatternEvent)
+                            onPatternStateChanged.Invoke(pattern, PatternEvent.Closed);
                         continue;
                     }
 
@@ -1454,8 +1747,6 @@ namespace cAlgo {
                         }
 
                         if (pattern.Enter && !pattern.Target1Compleated) {
-
-
                             //if (Bot.Positions.Find(pattern.GetKey()) != null)
                             //{
                             //    double volume_norm2 = Bot.Symbol.NormalizeVolumeInUnits(pattern.Volume / 2, RoundingMode.Down);
@@ -1467,10 +1758,8 @@ namespace cAlgo {
 
                         pattern.Target1Compleated = true;
                         pattern.Succeed = true;
-
-                        //Statistics.Add(pattern);
-
-
+                        if (_signalPatternEvent)
+                            onPatternStateChanged.Invoke(pattern, PatternEvent.Target1);
                     }
 
                     //SE IL PREZZO E' ARRIVATO AL SECONDO TARGET ALLORA CHIUDO LA POSIZIONE
@@ -1485,8 +1774,8 @@ namespace cAlgo {
                         pattern.Target2Compleated = true;
                         pattern.Succeed = true;
                         pattern.Closed = true;
-                        //Statistics.Add(pattern);
-
+                        if (_signalPatternEvent)
+                            onPatternStateChanged.Invoke(pattern, PatternEvent.Target2);
                         continue;
                     }
                 }
@@ -1504,7 +1793,8 @@ namespace cAlgo {
                     if (pattern.CD == null) {
                         pattern.CD = new Segment(pattern.BC.ToPrice, TradePrice, pattern.BC.ToOpenTime, openTime);
                         pattern.Compleated = true;
-                        //trigCompleated = true;
+                        if (_signalPatternEvent)
+                            onPatternStateChanged.Invoke(pattern, PatternEvent.Compleated);
                     }
                     else {
                         if (TradePrice < pattern.CD.ToPrice && pattern.Mode == PatternMode.Bullish || TradePrice > pattern.CD.ToPrice && pattern.Mode == PatternMode.Bearish) {
@@ -1570,12 +1860,18 @@ namespace cAlgo {
 
 
                 if (pattern.DrawableArea.InArea(TradePrice) || pattern.Compleated) {
+                    if (pattern.Drawable == false && _signalPatternEvent) {
+                        onPatternStateChanged.Invoke(pattern, PatternEvent.Add);
+                    } 
                     pattern.Drawable = true;
                 }
                 else {
+                    if (pattern.Drawable == true && _signalPatternEvent) {
+                        onPatternStateChanged.Invoke(pattern, PatternEvent.Remove);
+                    }
                     pattern.Drawable = false;
                 }
-                //pattern.Drawable = true;
+
                 DrawPattern(pattern, Chart, Symbol.Bid);
             }
         }
@@ -2040,7 +2336,15 @@ namespace cAlgo {
         DFinding,
         Completed
     }
-
+    public enum PatternEvent {
+        Target1,
+        Target2,
+        Closed,
+        Compleated,
+        Add,
+        Remove,
+        NoEvent
+    }
 
     //public enum EnterMode
     //{

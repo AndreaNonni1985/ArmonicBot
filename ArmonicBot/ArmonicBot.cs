@@ -13,21 +13,18 @@ namespace cAlgo.Robots
     [Robot(TimeZone = TimeZones.UTC, AccessRights = AccessRights.None)]
     public class ArmonicBot : Robot
     {
-
         [Parameter(DefaultValue = 120, Group = "Scanner", MinValue = 10, MaxValue = 200, Step = 1)]
         public int Periods { get; set; }
-
         [Parameter(DefaultValue = false, Group = "Scanner")]
         public bool DrawSwing { get; set; }
-
         [Parameter("SubPeriods", DefaultValue = 96, Group = "Scanner", MinValue = 96, MaxValue = 192, Step = 1)]
         public int SubPeriods { get; set; }
 
         public ArmonicFinderEngine armonicFinder;
+        public List<ArmonicFinderEngine> multipleFinder;
+        public List<ArmonicPattern> Patterns;
         public GUI userInterface;
 
-        //public DataFlow testFlow;
-        //public DataFlow testFlow2;
         protected override void OnStart()
         {
             Debug.sender = this;
@@ -36,23 +33,65 @@ namespace cAlgo.Robots
             GlobalParameter.SubPeriods = SubPeriods;
             GlobalParameter.Periods = Periods;
 
-            //testFlow = new DataFlow(MarketData, Symbols.GetSymbol("EURGBP"), TimeFrame.Minute);
-            //testFlow.RequestBars(99999, true, OnDataLoaded, OnDataLoading);
-
-            //testFlow2 = new DataFlow(MarketData, Symbols.GetSymbol("EURJPY"), TimeFrame.Minute2);
-            //testFlow2.RequestBars(99999, true, OnDataLoaded, OnDataLoading);
             userInterface = new GUI(Chart, Watchlists);
             userInterface.OnClickStart += OnFindStart;
 
+            armonicFinder = new ArmonicFinderEngine(MarketData, Symbol, TimeFrame, Chart, Periods, true);
+            armonicFinder.Initialize(OnEngineLoaded, OnEngineLoading);
+            armonicFinder.onPatternStateChanged += ManagePattern;
 
+            userInterface.LoadingBar.Value = 0;
+            userInterface.LoadingBar.MaxValue = 100;
+            userInterface.LoadingBar.IsVisible = true;
+
+            multipleFinder = new List<ArmonicFinderEngine>();
+            Patterns = new List<ArmonicPattern>();
+        }
+
+        private void ManagePattern(ArmonicPattern pattern, PatternEvent e)
+        {
+            switch (e)
+            {
+                case PatternEvent.Add:
+                    Patterns.Add(pattern);
+                    userInterface.AddResult(pattern);
+                    break;
+                case PatternEvent.Remove:
+                    Patterns.Remove(pattern);
+                    userInterface.DeleteResult(pattern);
+                    break;
+
+                default:
+                    Patterns.First(args => args.GetKey() == pattern.GetKey()).Update(pattern);
+
+                    switch (e) {
+                        case PatternEvent.Compleated:
+                            
+                            break;
+                        case PatternEvent.Closed:
+                            
+                            break;
+                        case PatternEvent.Target1:
+                            
+                            break;
+                        case PatternEvent.Target2:
+                            
+                            break;
+                        
+                    }
+                    break;
+
+            }
         }
         protected override void OnTick()
         {
-            //armonicFinder.FineCalculate(false, Bid, Bars.Last(0).OpenTime);
+            if (armonicFinder != null)
+                armonicFinder.On_NewTick();
         }
         protected override void OnBar()
         {
-
+            if (armonicFinder != null)
+                armonicFinder.On_NewBar();
         }
         protected override void OnStop()
         {
@@ -64,24 +103,18 @@ namespace cAlgo.Robots
         }
         protected void OnFindStart()
         {
-            armonicFinder = new ArmonicFinderEngine(MarketData, Symbol, TimeFrame, Chart, Periods);
-            armonicFinder.Initialize(OnEngineLoaded, OnEngineLoading);
-            userInterface.LoadingBar.Value = 0;
-            userInterface.LoadingBar.MaxValue = 100;
-            userInterface.LoadingBar.IsVisible = true;
-        }
 
-        protected void OnDataLoading(double percentage, int count, string symbol)
-        {
-            Print("Loading Bars for Symbol {2} : {0}% ({1} Bars) ", percentage, count, symbol);
-        }
-        protected void OnDataLoaded(DataFlow sender)
-        {
-            Print("Bars Loaded For Symbol {0}", sender.BarsData.SymbolName);
-            if (sender.BarsData.SymbolName != Symbol.Name)
-            {
-                sender.TraceNewBar(OnOtherSymbolBar);
-            }
+            ArmonicFinderEngine tmpEngine = new ArmonicFinderEngine(MarketData, Symbols.GetSymbol("EURJPY"), TimeFrame, Chart, Periods);
+
+            tmpEngine.Initialize(OnEngineLoaded, OnEngineLoading);
+            //tmpEngine.onNewPattern += addPattern;
+            //tmpEngine.onDeletePattern += delPattern;
+            //tmpEngine.onUpdatePattern += updPattern;
+            //userInterface.LoadingBar.Value = 0;
+            //userInterface.LoadingBar.MaxValue = 100;
+            //userInterface.LoadingBar.IsVisible = true;
+
+            multipleFinder.Add(tmpEngine);
         }
         protected void OnOtherSymbolBar(BarOpenedEventArgs e)
         {
