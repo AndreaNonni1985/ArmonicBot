@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System.Linq;
@@ -10,6 +11,40 @@ using cAlgo.Indicators;
 
 namespace cAlgo {
     public static class Utils {
+
+        public static TimeFrame[] TimeFrames = { 
+            TimeFrame.Minute, 
+            TimeFrame.Minute2, 
+            TimeFrame.Minute3, 
+            TimeFrame.Minute4, 
+            TimeFrame.Minute5, 
+            TimeFrame.Minute6, 
+            TimeFrame.Minute7, 
+            TimeFrame.Minute8, 
+            TimeFrame.Minute9, 
+            TimeFrame.Minute10,
+            
+            TimeFrame.Minute15,
+            TimeFrame.Minute20,
+            TimeFrame.Minute30,
+            TimeFrame.Minute45,
+
+            TimeFrame.Hour,
+            TimeFrame.Hour2,
+            TimeFrame.Hour3,
+            TimeFrame.Hour4,
+            TimeFrame.Hour6,
+            TimeFrame.Hour8,
+            TimeFrame.Hour12,
+
+            TimeFrame.Daily,
+            TimeFrame.Day2,
+            TimeFrame.Day3,
+
+            TimeFrame.Weekly,
+
+            TimeFrame.Monthly
+        };
         public static TimeFrame MinutesToTimeFrame(int Minutes) {
             //return TimeFrame.Daily;
 
@@ -273,6 +308,68 @@ namespace cAlgo {
     }
     public class GUI {
 
+        public static class Styles {
+            public static Style CreatePanelBackgroundStyle() {
+                var style = new Style();
+                style.Set(ControlProperty.CornerRadius, 3);
+                style.Set(ControlProperty.BackgroundColor, GetColorWithOpacity(Color.FromHex("#303060"), 0.45m), ControlState.DarkTheme);
+                style.Set(ControlProperty.BackgroundColor, GetColorWithOpacity(Color.FromHex("#000030"), 0.45m), ControlState.LightTheme);
+                style.Set(ControlProperty.BorderColor, Color.FromHex("#3C3C3C"), ControlState.DarkTheme);
+                style.Set(ControlProperty.BorderColor, Color.FromHex("#C3C3C3"), ControlState.LightTheme);
+                style.Set(ControlProperty.BorderThickness, new Thickness(1));
+
+                return style;
+            }
+
+            public static Style CreateCommonBorderStyle() {
+                var style = new Style();
+                style.Set(ControlProperty.BorderColor, GetColorWithOpacity(Color.FromHex("#FFFFFF"), 0.12m), ControlState.DarkTheme);
+                style.Set(ControlProperty.BorderColor, GetColorWithOpacity(Color.FromHex("#000000"), 0.12m), ControlState.LightTheme);
+                return style;
+            }
+
+            public static Style CreateHeaderStyle() {
+                var style = new Style();
+                style.Set(ControlProperty.ForegroundColor, GetColorWithOpacity("#FFFFFF", 0.70m), ControlState.DarkTheme);
+                style.Set(ControlProperty.ForegroundColor, GetColorWithOpacity("#000000", 0.65m), ControlState.LightTheme);
+                return style;
+            }
+
+            public static Style CreateCheckBoxStyle() {
+                var style = new Style(DefaultStyles.CheckBoxStyle);
+                style.Set(ControlProperty.BackgroundColor, Color.FromHex("#1A1A1A"), ControlState.DarkTheme);
+                style.Set(ControlProperty.BackgroundColor, Color.FromHex("#111111"), ControlState.DarkTheme | ControlState.Hover);
+                style.Set(ControlProperty.BackgroundColor, Color.FromHex("#E7EBED"), ControlState.LightTheme);
+                style.Set(ControlProperty.BackgroundColor, Color.FromHex("#D6DADC"), ControlState.LightTheme | ControlState.Hover);
+                style.Set(ControlProperty.CornerRadius, 3);
+                return style;
+            }
+
+            public static Style CreateGreenStyle() {
+                return CreateButtonStyle(Color.FromHex("#009345"), Color.FromHex("#10A651"));
+            }
+
+            public static Style CreateRedStyle() {
+                return CreateButtonStyle(Color.FromHex("#F05824"), Color.FromHex("#FF6C36"));
+            }
+
+            private static Style CreateButtonStyle(Color color, Color hoverColor) {
+                var style = new Style(DefaultStyles.ButtonStyle);
+                style.Set(ControlProperty.BackgroundColor, color, ControlState.DarkTheme);
+                style.Set(ControlProperty.BackgroundColor, color, ControlState.LightTheme);
+                style.Set(ControlProperty.BackgroundColor, hoverColor, ControlState.DarkTheme | ControlState.Hover);
+                style.Set(ControlProperty.BackgroundColor, hoverColor, ControlState.LightTheme | ControlState.Hover);
+                style.Set(ControlProperty.ForegroundColor, Color.FromHex("#FFFFFF"), ControlState.DarkTheme);
+                style.Set(ControlProperty.ForegroundColor, Color.FromHex("#FFFFFF"), ControlState.LightTheme);
+                return style;
+            }
+
+            private static Color GetColorWithOpacity(Color baseColor, decimal opacity) {
+                var alpha = (int)Math.Round(byte.MaxValue * opacity, MidpointRounding.AwayFromZero);
+                return Color.FromArgb(alpha, baseColor);
+            }
+        }
+
         public class ProgressBar : Canvas {
             private Rectangle border, back, front;
             private int _value;
@@ -336,23 +433,180 @@ namespace cAlgo {
 
         }
 
-        private class Result {
+        private class ResultItem : CustomControl {
             public string Key;
             private Button PatternButton;
-            private Panel DestinationPanel; 
-            public Result(Panel destinationPanel, ArmonicPattern pattern ) {
-                DestinationPanel = destinationPanel;
-                PatternButton = new Button() {
-                    Text = string.Format("{0} - {1} - {2}", pattern.Type.ToString(), pattern.Mode.ToString(), pattern.XA_Period.ToString()),
-                    Margin = 3,
-                    HorizontalAlignment = HorizontalAlignment.Left,
-                    IsHitTestVisible=true
+            private Grid Data;
+            private const String _defaultMargin = "40 2 40 2";
+
+            private class Column : CustomControl {
+                public Column(string value) {
+                    TextBlock caption = new TextBlock {
+                        Text = value,
+                        Margin = _defaultMargin
+                    };
+                    Border border = new Border {
+                        Child = caption,
+                        BorderThickness = new Thickness(1),
+                        Style = Styles.CreateCommonBorderStyle()
+
+                    };
+                    AddChild(border);
+                }
+            }
+            public ControlBase newColumn(string value) {
+                return new Column(value);
+            }
+            
+            public ResultItem(ArmonicPattern pattern) {
+
+                Data = new Grid(1, 10) {                    
                 };
-                DestinationPanel.AddChild(PatternButton);
+                Data.Columns[0].SetWidthToAuto();
+                Data.Columns[1].SetWidthToAuto();
+                Data.Columns[2].SetWidthToAuto();
+                Data.Columns[3].SetWidthToAuto();
+                Data.Columns[4].SetWidthToAuto();
+                Data.Columns[5].SetWidthToAuto();
+                Data.Columns[6].SetWidthToAuto();
+                Data.Columns[7].SetWidthToAuto();
+                Data.Columns[8].SetWidthToAuto();
+                Data.Columns[9].SetWidthToAuto();
+
+                Data.AddChild(newColumn(pattern.Symbol.Name), 0, 0);
+                Data.AddChild(newColumn(pattern.TimeFrame.ToString()), 0, 1);
+                Data.AddChild(newColumn(pattern.Type.ToString()), 0, 2);
+                Data.AddChild(newColumn(pattern.Mode.ToString()), 0, 3);
+                Data.AddChild(newColumn("<simmetry>"), 0, 4);
+                Data.AddChild(newColumn("<pattern width>"), 0, 5);
+                Data.AddChild(newColumn("<% compleated>"), 0, 6);
+                Data.AddChild(newColumn("<levels>"), 0, 7);
+                Data.AddChild(newColumn("<impulse>"), 0, 8);
+                Data.AddChild(newColumn("<state>"), 0, 9);
+
+                PatternButton = new Button() {
+                    Content=Data,
+                    HorizontalAlignment=HorizontalAlignment.Left
+                };
+                
+                AddChild(PatternButton);
                 Key = pattern.GetKey();
             }
-            public void Destoy() {
-                DestinationPanel.RemoveChild(PatternButton);
+        }
+        public class SymbolItem : CustomControl {
+            private CheckBox CheckBox;
+            public string SymbolName;
+            public bool Selected {
+                get {
+                    return CheckBox.IsChecked == false ? false : true;
+                }
+                set {
+                    CheckBox.IsChecked = value;
+                }
+            }
+            private event Action<CheckBox, CheckBoxEventArgs> OnSymbolSelectorCheck;
+            public SymbolItem(string symbol, Action<CheckBox, CheckBoxEventArgs> SymbolSelectorCheck) {
+                SymbolName = symbol;
+                CheckBox = new CheckBox() {
+                    Text = symbol,
+                    FontSize = 12,
+                    Margin = "20 0 0 0",
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    //Style = Styles.CreateCheckBoxStyle()
+                };
+                CheckBox.Click += OnCheckBoxCheck;
+                OnSymbolSelectorCheck += SymbolSelectorCheck;
+                AddChild(CheckBox);
+            }
+
+            private void OnCheckBoxCheck(CheckBoxEventArgs e) {
+                OnSymbolSelectorCheck.Invoke(this.CheckBox, e);
+            }
+        }
+
+        public class WatchListItem : CustomControl {
+
+
+            private CheckBox CheckBox;
+            public List<SymbolItem> SymbolItems;
+            public bool Selected {
+                get {
+                    return CheckBox.IsChecked==false?false:true;
+                }
+            }
+
+            public WatchListItem(Watchlist watchlist) {
+                StackPanel content = new StackPanel() {
+                    Orientation = Orientation.Vertical
+                };
+                CheckBox = new CheckBox() {
+                    Text = watchlist.Name,
+                    FontSize = 16,
+                    Margin = "0 10 0 10",
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    //Style = Styles.CreateCheckBoxStyle(),
+                    IsThreeState=true
+                };
+                CheckBox.Click += onWatchlistCheckChange;
+                content.AddChild(CheckBox);
+
+                SymbolItems = new List<SymbolItem>();
+                foreach (string symbolname in watchlist.SymbolNames.ToArray()) {
+                    SymbolItems.Add(new SymbolItem(symbolname, onSymbolCheckChange));
+                }
+                foreach(SymbolItem symbolselector in SymbolItems) {
+                    content.AddChild(symbolselector);
+                }
+                AddChild(content);
+            }
+
+            private void onWatchlistCheckChange(CheckBoxEventArgs e) {
+                if (e.CheckBox.IsChecked==null) {
+                    CheckBox.IsChecked = false;
+                }
+                foreach (SymbolItem selector in SymbolItems) {
+                    selector.Selected = CheckBox.IsChecked == false?false:true;
+                }
+            }
+            private void onSymbolCheckChange(CheckBox sender, CheckBoxEventArgs e) {
+                if (e.CheckBox.IsChecked==true) {
+                    if (SymbolItems.Count(pred => pred.Selected == true) == SymbolItems.Count()) {
+                        CheckBox.IsChecked = true;
+                    }else {
+                        CheckBox.IsChecked = null;
+                    }
+                } else {
+                    if (SymbolItems.Count(pred => pred.Selected == false ) == SymbolItems.Count()) {
+                        CheckBox.IsChecked = false;
+                    }
+                    else {
+                        CheckBox.IsChecked = null;
+                    }
+                }
+            }
+        }
+
+        public class TimeFrameItem : CustomControl {
+            private CheckBox CheckBox;
+            public TimeFrame TimeFrame;
+            public bool Selected {
+                get {
+                    return CheckBox.IsChecked == false ? false : true;
+                }
+            }
+            public TimeFrameItem(TimeFrame timeframe, Action<CheckBoxEventArgs> onTimeFrameCheck = null) {
+                TimeFrame = timeframe;
+                CheckBox = new CheckBox() {
+                    Text = timeframe.ToString(),
+                    FontSize = 12,
+                    Margin = "10 0 0 0",
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    //Style = Styles.CreateCheckBoxStyle()
+                };
+                if (onTimeFrameCheck != null)
+                    CheckBox.Click += onTimeFrameCheck;
+                
+                AddChild(CheckBox);
             }
         }
 
@@ -360,127 +614,158 @@ namespace cAlgo {
         private Watchlists Watchlists;
 
         public ProgressBar LoadingBar;
-        private StackPanel WatchListPanel;
-        private StackPanel SymbolPanel;
+
         private StackPanel ConfigPanel;
-        private StackPanel MainPanel;
-        private ScrollViewer ScrollMain; 
-        //private StackPanel OptionPanel;
-        //private Panel MainPanel;
-        //private Button StartButton;
-        //private DockPanel Framework;
-        private List<CheckBox> WatchlistChecks;
-        private List<CheckBox> SymbolChecks;
-        private List<TextBlock> SymbolWatchlistTitles;
-        private List<Result> Results;
+        private ScrollViewer SymbolScroll;
+        public List<WatchListItem> WatchlistItems;
+
+        private StackPanel ResultPanel;
+        private ScrollViewer ResultScroll;
+        private List<ResultItem> ResultItems;
+
+        private ScrollViewer TimeFrameScroll;
+        public List<TimeFrameItem> TimeFrameItems;
+
         private DockPanel Framework;
-        //private Grid GridResult;
 
         public event Action OnClickStart;
 
         public GUI(Chart chart, Watchlists watchlists) {
-
             Chart = chart;
             Watchlists = watchlists;
 
+            //String desktopFolder = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);//getting location of user's Desktop folder  
+            //String filePath = Path.Combine(desktopFolder, "ServerTimeExample.txt");
+            //StreamWriter _fileWriter;
+            //_fileWriter = File.WriteAllText(filePath,);
+            //_fileWriter.AutoFlush = true;
+
             //DYNAMIC CONTROLS
-            WatchlistChecks = new List<CheckBox>();
-            SymbolChecks = new List<CheckBox>();
-            SymbolWatchlistTitles = new List<TextBlock>();
-            Results = new List<Result>();
+            ResultItems = new List<ResultItem>();
+            WatchlistItems = new List<WatchListItem>();
+            TimeFrameItems = new List<TimeFrameItem>();
 
-            //WATCHLIST
-            StackPanel WatchListPanel = new StackPanel {
+            //WATCHLIST & SYMBOL & TIMEFRAME
+            StackPanel WatchListScrollPanel = new StackPanel {
                 Orientation = Orientation.Vertical,
-                Width = 150,
-                BackgroundColor = Color.FromArgb(30, Color.Blue),
-                IsEnabled = true,
-                IsHitTestVisible = true
             };
-            TextBlock TitleWatchlistPanel = new TextBlock {
-                Text = "Watchlists",
-                FontSize = 20,
-                Margin = "12 4"
-            };
-            WatchListPanel.AddChild(TitleWatchlistPanel);
-            WatchlistChecks = new List<CheckBox>();
             foreach (Watchlist entry in Watchlists) {
-                CheckBox _CheckBox = new CheckBox {
-                    Margin = 3,
-                    Text = entry.Name
-                };
-                _CheckBox.Checked += OnCheckWatchChange;
-                _CheckBox.Unchecked += OnCheckWatchChange;
-
-                WatchlistChecks.Add(_CheckBox);
-                WatchListPanel.AddChild(WatchlistChecks[WatchlistChecks.Count - 1]);
+                WatchListItem control = new WatchListItem(entry);
+                WatchlistItems.Add(control);
+                WatchListScrollPanel.AddChild(control);
             }
-
-            //SYMBOL
-            SymbolPanel = new StackPanel {
-                Orientation = Orientation.Vertical,
-                Width = 150,
-                BackgroundColor = Color.FromArgb(30, Color.Green),
-                IsEnabled = true,
-                IsHitTestVisible = true
+            SymbolScroll = new ScrollViewer {
+                BackgroundColor = Color.Transparent,
+                Content = WatchListScrollPanel,
             };
-            TextBlock TitleSymbolPanel = new TextBlock {
-                Text = "Symbols",
+            TextBlock TitleWatchlist = new TextBlock {
+                Text = "Watchlists",
+                Margin = "10 3 10 3",
                 FontSize = 20,
-                Margin = "12 4"
             };
-            SymbolPanel.AddChild(TitleSymbolPanel);
+            Border TitleWatchlistBorder = new Border {
+                BorderThickness = "0 0 0 1",
+                Child = TitleWatchlist,
+                Style = Styles.CreateCommonBorderStyle(),
+                Dock = Dock.Top,
+            };
+            DockPanel WatchListPanel = new DockPanel {
+                BackgroundColor = Color.Transparent,
+            };
+            WatchListPanel.AddChild(TitleWatchlistBorder);
+            WatchListPanel.AddChild(SymbolScroll);
+            Border WatchlistBorder = new Border {
+                Child = WatchListPanel,
+                Style = Styles.CreatePanelBackgroundStyle()
+            };
 
+
+
+            StackPanel TimeFrameScrollPanel = new StackPanel {
+                Orientation = Orientation.Vertical,
+            };
+            foreach (TimeFrame item in Utils.TimeFrames) {
+                TimeFrameItem control = new TimeFrameItem(item);
+                TimeFrameItems.Add(control);
+                TimeFrameScrollPanel.AddChild(control);
+            }
+            TimeFrameScroll = new ScrollViewer {
+                BackgroundColor = Color.Transparent,
+                Content = TimeFrameScrollPanel,
+            };
+            TextBlock TitleTimeFrame = new TextBlock {
+                Text = "TimeFrames",
+                Margin = "10 3 10 3",
+                FontSize = 20,
+            };
+            Border TitleTimeFrameBorder = new Border {
+                BorderThickness = "0 0 0 1",
+                Child = TitleTimeFrame,
+                Style = Styles.CreateCommonBorderStyle(),
+                Dock = Dock.Top,
+            };
+            DockPanel TimeFramePanel = new DockPanel {
+                BackgroundColor = Color.Transparent,
+            };
+            TimeFramePanel.AddChild(TitleTimeFrameBorder);
+            TimeFramePanel.AddChild(TimeFrameScroll);
+            Border TimeFrameBorder = new Border {
+                Margin = "10 0 0 0",
+                Child = TimeFramePanel,
+                Style = Styles.CreatePanelBackgroundStyle()
+            };
 
 
             //CONFIGURATION
             ConfigPanel = new StackPanel {
                 Orientation = Orientation.Horizontal,
-                //HorizontalAlignment = HorizontalAlignment.Right,
-                Dock = Dock.Right,
-                Margin = 5
+                Dock = Dock.Left,
+                Margin = "0 0 10 0"
             };
-            ConfigPanel.AddChild(WatchListPanel);
-            ConfigPanel.AddChild(SymbolPanel);
+            ConfigPanel.AddChild(WatchlistBorder);
+            ConfigPanel.AddChild(TimeFrameBorder);
             ConfigPanel.IsVisible = false;
 
             //OPTION
             Button StartButton = new Button {
                 Text = "Start",
                 Width = 100,
-                Margin = 10
-
+                Margin = 5
             };
             StartButton.Click += OnButtonClick;
             Button ConfigButton = new Button {
                 Text = "Option",
                 Width = 100,
-                Margin = 10
+                Margin = 5
             };
             ConfigButton.Click += OnButtonClick;
+            Button ResultButton = new Button {
+                Text = "Result",
+                Width = 100,
+                Margin = 5
+            };
+            ResultButton.Click += OnButtonClick;
             StackPanel OptionPanel = new StackPanel {
                 Orientation = Orientation.Horizontal,
                 HorizontalAlignment = HorizontalAlignment.Right,
                 Dock = Dock.Top,
                 Margin = 2
             };
-            OptionPanel.AddChild(StartButton);
-            OptionPanel.AddChild(ConfigButton);
-
-            ////EMPTY
-            MainPanel = new StackPanel {
-            };
-
-            ScrollMain = new ScrollViewer() {
-                Content = MainPanel,
-                Width = 240,
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-                VerticalAlignment = VerticalAlignment.Top,
-                HorizontalAlignment = HorizontalAlignment.Left,
-                Opacity = 0.7,
-                //IsHitTestVisible=false
-            };
             
+            OptionPanel.AddChild(ResultButton);
+            OptionPanel.AddChild(ConfigButton);
+            OptionPanel.AddChild(StartButton);
+
+            //RESULT
+            ResultPanel = new StackPanel {
+                Orientation = Orientation.Vertical
+            };
+            ResultScroll = new ScrollViewer() {
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                Content = ResultPanel,
+                IsVisible = false
+            };
 
             //LOADING
             LoadingBar = new ProgressBar {
@@ -498,22 +783,24 @@ namespace cAlgo {
             Framework.AddChild(OptionPanel);
             Framework.AddChild(ConfigPanel);
             Framework.AddChild(LoadingBar);
-            //Framework.AddChild(MainPanel);
-            Chart.AddControl(ScrollMain);
+            Framework.AddChild(ResultScroll);
 
             //CHART
             Chart.AddControl(Framework);
         }
         public void AddResult(ArmonicPattern pattern) {
-            Result result = new Result(MainPanel, pattern);
-            Results.Add(result);
+            ResultItem result = new ResultItem(pattern);
+            //ResultItem result = new ResultItem(ResultPanel, pattern);
+            ResultItems.Add(result);
+            ResultPanel.AddChild(result);
         }
         public void DeleteResult(ArmonicPattern pattern) {
-            Result result;
-            result = Results.FirstOrDefault(fnd => fnd.Key == pattern.GetKey());
+            ResultItem result;
+            result = ResultItems.FirstOrDefault(fnd => fnd.Key == pattern.GetKey());
             if (result != null) {
-                result.Destoy();
-                Results.Remove(result);
+                //result.Destoy();
+                ResultPanel.RemoveChild(result);
+                ResultItems.Remove(result);
             }
         }
 
@@ -583,46 +870,63 @@ namespace cAlgo {
             ////Framework.AddChild(GridResult);
 
         }
-        public void AddSymbols(List<String> SymbolList, string WatchlistName) {
-            TextBlock TitleCheckSymbolWatchlist = new TextBlock {
-                Text = WatchlistName,
-                FontSize = 12,
-                Margin = 8
-            };
-            SymbolWatchlistTitles.Add(TitleCheckSymbolWatchlist);
-            SymbolPanel.AddChild(TitleCheckSymbolWatchlist);
-            foreach (string _symbol in SymbolList) {
-                CheckBox _CheckBox = new CheckBox {
-                    Margin = 3,
-                    Text = _symbol
-                };
-                SymbolChecks.Add(_CheckBox);
-                SymbolPanel.AddChild(SymbolChecks[SymbolChecks.Count - 1]);
-            }
-        }
-        public void RemoveSymbols(List<String> SymbolList, string WatchlistName) {
-            SymbolPanel.RemoveChild(SymbolWatchlistTitles.First(e => e.Text == WatchlistName));
-            SymbolWatchlistTitles.RemoveAll(e => e.Text == WatchlistName);
-            foreach (string _symbol in SymbolList) {
-                SymbolPanel.RemoveChild(SymbolChecks.First(e => e.Text == _symbol));
-                SymbolChecks.RemoveAll(e => e.Text == _symbol);
-            }
-        }
-        private void OnCheckWatchChange(CheckBoxEventArgs args) {
-            if (args.CheckBox.IsChecked == true) {
-                AddSymbols(Watchlists.FirstOrDefault(e => (e.Name == args.CheckBox.Text)).SymbolNames.ToList(), args.CheckBox.Text);
-            }
-            else if (args.CheckBox.IsChecked == false) {
-                RemoveSymbols(Watchlists.FirstOrDefault(e => (e.Name == args.CheckBox.Text)).SymbolNames.ToList(), args.CheckBox.Text);
-            }
-        }
+        //public void AddSymbols(List<String> SymbolList, string WatchlistName) {
+        //    CheckBox TitleCheckSymbolWatchlist = new CheckBox {
+        //        Text = WatchlistName,
+        //        FontSize = 12,
+        //        Opacity= 0.8,
+        //        Margin = 10
+        //    };
+        //    TitleCheckSymbolWatchlist.Checked += OnCheckWatchlistTitlesChange;
+        //    TitleCheckSymbolWatchlist.Unchecked += OnCheckWatchlistTitlesChange;
+        //    SymbolWatchlistTitles.Add(TitleCheckSymbolWatchlist);
+        //    SymbolPanel.AddChild(TitleCheckSymbolWatchlist);
+        //    foreach (string _symbol in SymbolList) {
+        //        CheckBox _CheckBox = new CheckBox {
+        //            Margin = 3,
+        //            Text = _symbol
+        //        };
+        //        SymbolChecks.Add(_CheckBox);
+        //        SymbolPanel.AddChild(SymbolChecks[SymbolChecks.Count - 1]);
+        //    }
+        //}
+        //public void RemoveSymbols(List<String> SymbolList, string WatchlistName) {
+        //    SymbolPanel.RemoveChild(SymbolWatchlistTitles.First(e => e.Text == WatchlistName));
+        //    SymbolWatchlistTitles.RemoveAll(e => e.Text == WatchlistName);
+        //    foreach (string _symbol in SymbolList) {
+        //        SymbolPanel.RemoveChild(SymbolChecks.First(e => e.Text == _symbol));
+        //        SymbolChecks.RemoveAll(e => e.Text == _symbol);
+        //    }
+        //}
+        //private void OnCheckWatchChange(CheckBoxEventArgs args) {
+        //    if (args.CheckBox.IsChecked == true) {
+        //        AddSymbols(Watchlists.FirstOrDefault(e => (e.Name == args.CheckBox.Text)).SymbolNames.ToList(), args.CheckBox.Text);
+        //    }
+        //    else if (args.CheckBox.IsChecked == false) {
+        //        RemoveSymbols(Watchlists.FirstOrDefault(e => (e.Name == args.CheckBox.Text)).SymbolNames.ToList(), args.CheckBox.Text);
+        //    }
+        //}
+        //private void OnCheckWatchlistTitlesChange(CheckBoxEventArgs args) {
+        //    //if (args.CheckBox.IsChecked == true) {
+        //    //    AddSymbols(Watchlists.FirstOrDefault(e => (e.Name == args.CheckBox.Text)).SymbolNames.ToList(), args.CheckBox.Text);
+        //    //}
+        //    //else if (args.CheckBox.IsChecked == false) {
+        //    //    RemoveSymbols(Watchlists.FirstOrDefault(e => (e.Name == args.CheckBox.Text)).SymbolNames.ToList(), args.CheckBox.Text);
+        //    //}
+        //}
+
         private void OnButtonClick(ButtonClickEventArgs obj) {
             switch (obj.Button.Text) {
                 case ("Option"):
                     ConfigPanel.IsVisible = !ConfigPanel.IsVisible;
+                    ResultScroll.IsVisible = false;
                     break;
                 case ("Start"):
                     OnClickStart.Invoke();
+                    break;
+                case ("Result"):
+                    ResultScroll.IsVisible = !ResultScroll.IsVisible;
+                    ConfigPanel.IsVisible = false;
                     break;
             }
         }
@@ -685,9 +989,11 @@ namespace cAlgo {
             TimeFrame = timeframe;
             Reset(bornSegment);
         }
-        public ArmonicPattern(ArmonicPattern PatternToCopy) {
-            Update(PatternToCopy);
-        }
+
+        //public ArmonicPattern(ArmonicPattern PatternToCopy) {
+        //    Update(PatternToCopy);
+        //}
+
         public void Reset(Segment bornSegment) {
             Key = CreateKey(bornSegment);
             XA = bornSegment;
@@ -808,10 +1114,10 @@ namespace cAlgo {
             return String.Format("Key:{0}_", XA.FromOpenTime.ToString("dd/MM/yyyy:HHmmss"));
         }
         public string CreateKey() {
-            return String.Format("Key:{0}_", XA.FromOpenTime.ToString("dd/MM/yyyy:HHmmss"));
+            return CreateKey(XA);
         }
         public string CreateKey(Segment segment) {
-            return String.Format("Key:{0}_", segment.FromOpenTime.ToString("dd/MM/yyyy:HHmmss"));
+            return String.Format("Key:{0}_{1}_{2}", Symbol.Name, TimeFrame.ToString(), segment.FromOpenTime.ToString("dd/MM/yyyy:HHmmss"));
         }
     }
     //}
@@ -937,7 +1243,7 @@ namespace cAlgo {
         public DataFlow MainData;
         public DataFlow PrecisionData;
         public int Periods { get; private set; }
-
+        public string Key;
         //public event Action<ArmonicPattern> onNewPattern;
         //public event Action<ArmonicPattern> onDeletePattern;
         //public event Action<ArmonicPattern, ArmonicPatternEventArgs> onUpdatePattern;
@@ -948,7 +1254,7 @@ namespace cAlgo {
 
         public ArmonicFinderEngine(MarketData marketdata, Symbol symbol, TimeFrame timeframe, Chart chart, int periods, bool mainSymbol = false) {
             int MinutesFineCalc;
-
+            Key = String.Format("{0}-{1}", symbol.Name, timeframe.ToString());
             Periods = periods;
             Symbol = symbol;
             Chart = chart;

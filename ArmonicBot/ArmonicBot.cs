@@ -60,24 +60,25 @@ namespace cAlgo.Robots
                     Patterns.Remove(pattern);
                     userInterface.DeleteResult(pattern);
                     break;
-
                 default:
+
                     Patterns.First(args => args.GetKey() == pattern.GetKey()).Update(pattern);
 
-                    switch (e) {
+                    switch (e)
+                    {
                         case PatternEvent.Compleated:
-                            
+
                             break;
                         case PatternEvent.Closed:
-                            
+
                             break;
                         case PatternEvent.Target1:
-                            
+
                             break;
                         case PatternEvent.Target2:
-                            
+
                             break;
-                        
+
                     }
                     break;
 
@@ -103,18 +104,18 @@ namespace cAlgo.Robots
         }
         protected void OnFindStart()
         {
-
-            ArmonicFinderEngine tmpEngine = new ArmonicFinderEngine(MarketData, Symbols.GetSymbol("EURJPY"), TimeFrame, Chart, Periods);
-
-            tmpEngine.Initialize(OnEngineLoaded, OnEngineLoading);
-            //tmpEngine.onNewPattern += addPattern;
-            //tmpEngine.onDeletePattern += delPattern;
-            //tmpEngine.onUpdatePattern += updPattern;
-            //userInterface.LoadingBar.Value = 0;
-            //userInterface.LoadingBar.MaxValue = 100;
-            //userInterface.LoadingBar.IsVisible = true;
-
-            multipleFinder.Add(tmpEngine);
+            foreach(GUI.WatchListItem WLItem in userInterface.WatchlistItems.Where(obj => obj.Selected)) {
+                foreach(GUI.SymbolItem SYItem in WLItem.SymbolItems.Where(obj => obj.Selected)) {
+                    foreach(GUI.TimeFrameItem TFItem in userInterface.TimeFrameItems.Where(obj => obj.Selected)) {
+                        ArmonicFinderEngine tmpEngine = new ArmonicFinderEngine(MarketData, Symbols.GetSymbol(SYItem.SymbolName), TFItem.TimeFrame, Chart, Periods);
+                        if (!multipleFinder.Exists(engine => engine.Key == tmpEngine.Key) ) {
+                            tmpEngine.Initialize(OnEngineLoaded, OnEngineLoading);
+                            tmpEngine.onPatternStateChanged += ManagePattern;
+                            multipleFinder.Add(tmpEngine);
+                        }   
+                    }
+                }
+            }
         }
         protected void OnOtherSymbolBar(BarOpenedEventArgs e)
         {
