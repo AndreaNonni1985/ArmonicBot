@@ -312,8 +312,8 @@ namespace cAlgo {
             public static Style CreatePanelBackgroundStyle() {
                 var style = new Style();
                 style.Set(ControlProperty.CornerRadius, 3);
-                style.Set(ControlProperty.BackgroundColor, GetColorWithOpacity(Color.FromHex("#303060"), 0.45m), ControlState.DarkTheme);
-                style.Set(ControlProperty.BackgroundColor, GetColorWithOpacity(Color.FromHex("#000030"), 0.45m), ControlState.LightTheme);
+                style.Set(ControlProperty.BackgroundColor, GetColorWithOpacity(Color.FromHex("#303060"), 0.25m), ControlState.DarkTheme);
+                style.Set(ControlProperty.BackgroundColor, GetColorWithOpacity(Color.FromHex("#000030"), 0.25m), ControlState.LightTheme);
                 style.Set(ControlProperty.BorderColor, Color.FromHex("#3C3C3C"), ControlState.DarkTheme);
                 style.Set(ControlProperty.BorderColor, Color.FromHex("#C3C3C3"), ControlState.LightTheme);
                 style.Set(ControlProperty.BorderThickness, new Thickness(1));
@@ -435,9 +435,10 @@ namespace cAlgo {
 
         private class ResultItem : CustomControl {
             public string Key;
+            public ArmonicPattern Pattern;
             private Button PatternButton;
-            private Grid Data;
-            private const String _defaultMargin = "40 2 40 2";
+            public Grid Data;
+            private const String _defaultMargin = "10 2 10 2";
 
             private class Column : CustomControl {
                 public Column(string value) {
@@ -459,19 +460,10 @@ namespace cAlgo {
             }
             
             public ResultItem(ArmonicPattern pattern) {
-
+                Pattern = pattern;
                 Data = new Grid(1, 10) {                    
                 };
-                Data.Columns[0].SetWidthToAuto();
-                Data.Columns[1].SetWidthToAuto();
-                Data.Columns[2].SetWidthToAuto();
-                Data.Columns[3].SetWidthToAuto();
-                Data.Columns[4].SetWidthToAuto();
-                Data.Columns[5].SetWidthToAuto();
-                Data.Columns[6].SetWidthToAuto();
-                Data.Columns[7].SetWidthToAuto();
-                Data.Columns[8].SetWidthToAuto();
-                Data.Columns[9].SetWidthToAuto();
+                
 
                 Data.AddChild(newColumn(pattern.Symbol.Name), 0, 0);
                 Data.AddChild(newColumn(pattern.TimeFrame.ToString()), 0, 1);
@@ -484,8 +476,20 @@ namespace cAlgo {
                 Data.AddChild(newColumn("<impulse>"), 0, 8);
                 Data.AddChild(newColumn("<state>"), 0, 9);
 
+                Data.Columns[0].SetWidthInPixels(150);
+                Data.Columns[1].SetWidthInPixels(100);
+                Data.Columns[2].SetWidthInPixels(150);
+                Data.Columns[3].SetWidthInPixels(150);
+                Data.Columns[4].SetWidthInPixels(120);
+                Data.Columns[5].SetWidthInPixels(120);
+                Data.Columns[6].SetWidthInPixels(120);
+                Data.Columns[7].SetWidthInPixels(120);
+                Data.Columns[8].SetWidthInPixels(120);
+                Data.Columns[9].SetWidthInPixels(120);
+
                 PatternButton = new Button() {
-                    Content=Data,
+                    BackgroundColor = Color.FromArgb(20, Color.Silver),
+                    Content =Data,
                     HorizontalAlignment=HorizontalAlignment.Left
                 };
                 
@@ -619,10 +623,11 @@ namespace cAlgo {
         private ScrollViewer SymbolScroll;
         public List<WatchListItem> WatchlistItems;
 
-        private StackPanel ResultPanel;
+        private StackPanel ResultItemPanel;
         private ScrollViewer ResultScroll;
         private List<ResultItem> ResultItems;
-
+        private DockPanel ResultPanel;
+        private Border ResultBorder;
         private ScrollViewer TimeFrameScroll;
         public List<TimeFrameItem> TimeFrameItems;
 
@@ -675,6 +680,7 @@ namespace cAlgo {
             WatchListPanel.AddChild(TitleWatchlistBorder);
             WatchListPanel.AddChild(SymbolScroll);
             Border WatchlistBorder = new Border {
+                Margin = "10 0 10 0",
                 Child = WatchListPanel,
                 Style = Styles.CreatePanelBackgroundStyle()
             };
@@ -710,7 +716,7 @@ namespace cAlgo {
             TimeFramePanel.AddChild(TitleTimeFrameBorder);
             TimeFramePanel.AddChild(TimeFrameScroll);
             Border TimeFrameBorder = new Border {
-                Margin = "10 0 0 0",
+                Margin = "10 0 10 0",
                 Child = TimeFramePanel,
                 Style = Styles.CreatePanelBackgroundStyle()
             };
@@ -751,21 +757,42 @@ namespace cAlgo {
                 Dock = Dock.Top,
                 Margin = 2
             };
-            
             OptionPanel.AddChild(ResultButton);
             OptionPanel.AddChild(ConfigButton);
             OptionPanel.AddChild(StartButton);
 
             //RESULT
-            ResultPanel = new StackPanel {
-                Orientation = Orientation.Vertical
-            };
+            ResultItemPanel = CreateResultItemPanel();
             ResultScroll = new ScrollViewer() {
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                Content = ResultPanel,
+                Content = ResultItemPanel,
+                BackgroundColor = Color.Transparent
+            };
+            TextBlock TitleResult = new TextBlock {
+                Text = "Result",
+                Margin = "10 3 10 3",
+                FontSize = 20,
+            };
+            Border TitleResultBorder = new Border {
+                BorderThickness = "0 0 0 1",
+                Child = TitleResult,
+                Style = Styles.CreateCommonBorderStyle(),
+                Dock = Dock.Top,
+            };
+            ResultPanel = new DockPanel {
+                BackgroundColor = Color.Transparent,
+            };
+            ResultPanel.AddChild(TitleResultBorder);
+            ResultPanel.AddChild(ResultScroll);
+            ResultBorder = new Border {
+                Margin = "10 0 10 0",
+                Child = ResultPanel,
+                Style = Styles.CreatePanelBackgroundStyle(),
                 IsVisible = false
             };
+
+            
 
             //LOADING
             LoadingBar = new ProgressBar {
@@ -783,155 +810,68 @@ namespace cAlgo {
             Framework.AddChild(OptionPanel);
             Framework.AddChild(ConfigPanel);
             Framework.AddChild(LoadingBar);
-            Framework.AddChild(ResultScroll);
+            Framework.AddChild(ResultBorder);
 
             //CHART
             Chart.AddControl(Framework);
         }
+        private StackPanel CreateResultItemPanel() {
+            return new StackPanel {
+                Orientation = Orientation.Vertical
+            };
+        }
         public void AddResult(ArmonicPattern pattern) {
             ResultItem result = new ResultItem(pattern);
-            //ResultItem result = new ResultItem(ResultPanel, pattern);
+            //ResultItem result = new ResultItem(ResultItemPanel, pattern);
             ResultItems.Add(result);
-            ResultPanel.AddChild(result);
+            
         }
         public void DeleteResult(ArmonicPattern pattern) {
             ResultItem result;
             result = ResultItems.FirstOrDefault(fnd => fnd.Key == pattern.GetKey());
             if (result != null) {
-                //result.Destoy();
-                ResultPanel.RemoveChild(result);
+                ResultItemPanel.RemoveChild(result);
                 ResultItems.Remove(result);
             }
         }
-
-        public void DrawGrid(ArmonicPattern[] patterns) {
-            ////int i = 0;
-
-            ////if (GridResult != null) {
-            ////    Chart.RemoveControl(GridResult);
-            ////}
-
-            ////GridResult = new Grid() {
-            ////    BackgroundColor = Color.LightCyan,
-            ////    ShowGridLines = true
-            ////};
-
-            ////GridResult.AddColumns(3);
-            ////GridResult.Columns[0].SetWidthInStars(1);
-            ////GridResult.Columns[1].SetWidthToAuto();
-            ////GridResult.Columns[2].SetWidthInPixels(40);
-            ////TextBlock HeadType = new TextBlock {
-            ////    Text = "Pattern Type",
-            ////    FontSize = 12,
-            ////    Margin = 8
-            ////};
-            ////TextBlock HeadMode = new TextBlock {
-            ////    Text = "Pattern Direction",
-            ////    FontSize = 12,
-            ////    Margin = 8
-            ////};
-            ////TextBlock HeadCompleated = new TextBlock {
-            ////    Text = "Compleated",
-            ////    FontSize = 12,
-            ////    Margin = 8
-            ////};
-            
-            ////GridResult.AddRow();
-            ////GridResult.AddChild(HeadType, 0, 0);
-            ////GridResult.AddChild(HeadMode, 0, 1);
-            ////GridResult.AddChild(HeadCompleated, 0, 2);
-            
-            
-
-
-            ////for (i = 0;  i == patterns.Count() - 1 ; i++) {
-            ////    TextBlock Type = new TextBlock {
-            ////        Text = patterns[i].Type.ToString(),
-            ////        FontSize = 12,
-            ////        Margin = 8
-            ////    };
-            ////    TextBlock Mode = new TextBlock {
-            ////        Text = patterns[i].Mode.ToString(),
-            ////        FontSize = 12,
-            ////        Margin = 8
-            ////    };
-            ////    TextBlock Compleated = new TextBlock {
-            ////        Text = patterns[i].Compleated == true ? "Yes" : "No",
-            ////        FontSize = 12,
-            ////        Margin = 8
-            ////    };
-            ////    GridResult.AddRow();
-            ////    GridResult.AddChild(Type, i+1, 0);
-            ////    GridResult.AddChild(Mode, i+1, 1);
-            ////    GridResult.AddChild(Compleated, i+1, 2);
-
-            ////}
-            ////GridResult.Opacity = 0.1;
-            ////Framework.AddChild(GridResult);
-
+        public void ClearResults() {
+            ResultItems.Clear();
         }
-        //public void AddSymbols(List<String> SymbolList, string WatchlistName) {
-        //    CheckBox TitleCheckSymbolWatchlist = new CheckBox {
-        //        Text = WatchlistName,
-        //        FontSize = 12,
-        //        Opacity= 0.8,
-        //        Margin = 10
-        //    };
-        //    TitleCheckSymbolWatchlist.Checked += OnCheckWatchlistTitlesChange;
-        //    TitleCheckSymbolWatchlist.Unchecked += OnCheckWatchlistTitlesChange;
-        //    SymbolWatchlistTitles.Add(TitleCheckSymbolWatchlist);
-        //    SymbolPanel.AddChild(TitleCheckSymbolWatchlist);
-        //    foreach (string _symbol in SymbolList) {
-        //        CheckBox _CheckBox = new CheckBox {
-        //            Margin = 3,
-        //            Text = _symbol
-        //        };
-        //        SymbolChecks.Add(_CheckBox);
-        //        SymbolPanel.AddChild(SymbolChecks[SymbolChecks.Count - 1]);
-        //    }
-        //}
-        //public void RemoveSymbols(List<String> SymbolList, string WatchlistName) {
-        //    SymbolPanel.RemoveChild(SymbolWatchlistTitles.First(e => e.Text == WatchlistName));
-        //    SymbolWatchlistTitles.RemoveAll(e => e.Text == WatchlistName);
-        //    foreach (string _symbol in SymbolList) {
-        //        SymbolPanel.RemoveChild(SymbolChecks.First(e => e.Text == _symbol));
-        //        SymbolChecks.RemoveAll(e => e.Text == _symbol);
-        //    }
-        //}
-        //private void OnCheckWatchChange(CheckBoxEventArgs args) {
-        //    if (args.CheckBox.IsChecked == true) {
-        //        AddSymbols(Watchlists.FirstOrDefault(e => (e.Name == args.CheckBox.Text)).SymbolNames.ToList(), args.CheckBox.Text);
-        //    }
-        //    else if (args.CheckBox.IsChecked == false) {
-        //        RemoveSymbols(Watchlists.FirstOrDefault(e => (e.Name == args.CheckBox.Text)).SymbolNames.ToList(), args.CheckBox.Text);
-        //    }
-        //}
-        //private void OnCheckWatchlistTitlesChange(CheckBoxEventArgs args) {
-        //    //if (args.CheckBox.IsChecked == true) {
-        //    //    AddSymbols(Watchlists.FirstOrDefault(e => (e.Name == args.CheckBox.Text)).SymbolNames.ToList(), args.CheckBox.Text);
-        //    //}
-        //    //else if (args.CheckBox.IsChecked == false) {
-        //    //    RemoveSymbols(Watchlists.FirstOrDefault(e => (e.Name == args.CheckBox.Text)).SymbolNames.ToList(), args.CheckBox.Text);
-        //    //}
-        //}
 
+        public void DrawResults(bool filter = false, bool order = false) {
+            foreach (ResultItem item in ResultItems) {
+                ResultItemPanel.RemoveChild(item);
+            }
+            //Chart.RemoveControl(ResultItemPanel);
+            //ResultItemPanel = CreateResultItemPanel();
+            //ResultScroll.Content = ResultItemPanel;
+            //foreach (ResultItem item in ResultItems.Where(_filter => _filter.Pattern.Compleated==true).OrderBy(_order => _order.Pattern.XA_Period)) {
+            foreach (ResultItem item in ResultItems.OrderBy(_order => _order.Pattern.Compleated)) {
+                double _value = ResultItems.Max(_max => _max.Data.Columns[2].Width.Value);
+                item.Data.Columns[2].SetWidthInPixels(_value);
+                ResultItemPanel.AddChild(item);
+            }
+            
+        }
+        
         private void OnButtonClick(ButtonClickEventArgs obj) {
             switch (obj.Button.Text) {
                 case ("Option"):
                     ConfigPanel.IsVisible = !ConfigPanel.IsVisible;
-                    ResultScroll.IsVisible = false;
+                    ResultBorder.IsVisible = false;
+
                     break;
                 case ("Start"):
                     OnClickStart.Invoke();
                     break;
                 case ("Result"):
-                    ResultScroll.IsVisible = !ResultScroll.IsVisible;
+                    ResultBorder.IsVisible = !ResultBorder.IsVisible;
                     ConfigPanel.IsVisible = false;
                     break;
             }
         }
     }
-
+    
     public class ArmonicPatternEventArgs {
         public PatternEvent EventValue;
     }
@@ -1230,6 +1170,109 @@ namespace cAlgo {
 
     //    }
     //}
+
+
+    public class ArmonicMultiFinder {
+
+        private List<ArmonicFinderEngine> multipleFinder;
+        public List<ArmonicPattern> Patterns;
+        private ArmonicFinderEngine mainEngine;
+        private GUI userInterface;
+
+        private Chart Chart;
+        private Watchlists Watchlists;
+        private readonly Symbols Symbols;
+        private readonly MarketData MarketData;
+        public ArmonicMultiFinder(MarketData marketdata, Watchlists watchlists, Symbols symbols, Chart chart) {
+
+
+            MarketData = marketdata;
+            Watchlists = watchlists;
+            Symbols = symbols;
+            Chart = chart;
+
+            userInterface = new GUI(Chart, Watchlists);
+            userInterface.OnClickStart += OnFindStart;
+            multipleFinder = new List<ArmonicFinderEngine>();
+            Patterns = new List<ArmonicPattern>();
+            //userInterface.LoadingBar.Value = 0;
+            //userInterface.LoadingBar.MaxValue = 100;
+            //userInterface.LoadingBar.IsVisible = true;
+        }
+        public void SetMainEngine(ArmonicFinderEngine engine) {
+            mainEngine = engine;
+        }
+        private void AddEngine(ArmonicFinderEngine engine) {
+            engine.Initialize(OnEngineLoaded, OnEngineLoading);
+            engine.onPatternStateChanged += ManagePattern;
+            multipleFinder.Add(engine);
+        }
+        public bool EngineExists(ArmonicFinderEngine engineToCheck) {
+            return multipleFinder.Exists(engine => engine.Key == engineToCheck.Key);
+        }
+        private void ManagePattern(ArmonicPattern pattern, PatternEvent e) {
+            switch (e) {
+                case PatternEvent.Add:
+                    Patterns.Add(pattern);
+                    userInterface.AddResult(pattern);
+                    break;
+                case PatternEvent.Remove:
+                    Patterns.Remove(pattern);
+                    userInterface.DeleteResult(pattern);
+                    break;
+                default:
+
+                    Patterns.First(args => args.GetKey() == pattern.GetKey()).Update(pattern);
+
+                    switch (e) {
+                        case PatternEvent.Compleated:
+
+                            break;
+                        case PatternEvent.Closed:
+
+                            break;
+                        case PatternEvent.Target1:
+
+                            break;
+                        case PatternEvent.Target2:
+
+                            break;
+
+                    }
+                    break;
+
+            }
+            userInterface.DrawResults();
+        }
+
+        protected void OnOtherSymbolBar(BarOpenedEventArgs e) {
+            Debug.Print("New Bar Opened At {0}  Incoming From Symbol {1} in TimeFrame {2}", e.Bars.LastBar.OpenTime.ToString("dd/MM/yyyy:HHmmss"), e.Bars.SymbolName, e.Bars.TimeFrame.ToString());
+        }
+        protected void OnEngineLoading(ArmonicFinderEngine sender, double percentage) {
+            Debug.Print("Loading Data for Symbol {1} : {0}% ...", percentage, sender.MainData.BarsData.SymbolName);
+            userInterface.LoadingBar.Value = Convert.ToInt32(percentage);
+        }
+        protected void OnEngineLoaded(ArmonicFinderEngine sender) {
+            Debug.Print("Loading Finisced for Symbol {0}.", sender.MainData.BarsData.SymbolName);
+            userInterface.LoadingBar.IsVisible = false;
+        }
+        protected void OnFindStart() {
+            AddEngine(mainEngine);
+
+            foreach (GUI.WatchListItem WLItem in userInterface.WatchlistItems.Where(obj => obj.Selected)) {
+                foreach (GUI.SymbolItem SYItem in WLItem.SymbolItems.Where(obj => obj.Selected)) {
+                    foreach (GUI.TimeFrameItem TFItem in userInterface.TimeFrameItems.Where(obj => obj.Selected)) {
+                        ArmonicFinderEngine tmpEngine = new ArmonicFinderEngine(MarketData, Symbols.GetSymbol(SYItem.SymbolName), TFItem.TimeFrame, Chart);
+                        if (!EngineExists(tmpEngine)) {
+                            AddEngine(tmpEngine);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
     public class ArmonicFinderEngine {
         private readonly Symbol Symbol;
         private readonly TimeFrame MainTimeFrame;
@@ -1252,10 +1295,10 @@ namespace cAlgo {
         private event Action<ArmonicFinderEngine> onDataLoaded;
         public event Action<ArmonicPattern, PatternEvent> onPatternStateChanged;
 
-        public ArmonicFinderEngine(MarketData marketdata, Symbol symbol, TimeFrame timeframe, Chart chart, int periods, bool mainSymbol = false) {
+        public ArmonicFinderEngine(MarketData marketdata, Symbol symbol, TimeFrame timeframe, Chart chart, bool mainSymbol = false) {
             int MinutesFineCalc;
             Key = String.Format("{0}-{1}", symbol.Name, timeframe.ToString());
-            Periods = periods;
+            Periods = GlobalParameter.Periods;
             Symbol = symbol;
             Chart = chart;
             MainTimeFrame = timeframe;
