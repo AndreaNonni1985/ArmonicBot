@@ -7,8 +7,10 @@ using cAlgo.API;
 using cAlgo.API.Indicators;
 using cAlgo.API.Internals;
 using cAlgo.Indicators;
+using Armonic;
 
-namespace cAlgo.Robots {
+namespace cAlgo.Robots
+{
 
 
     [Robot(TimeZone = TimeZones.UTC, AccessRights = AccessRights.None)]
@@ -34,7 +36,7 @@ namespace cAlgo.Robots {
 
             armonicFinder = new ArmonicFinderEngine(MarketData, Symbol, TimeFrame, Chart, true);
 
-            multiFinder = new ArmonicMultiFinder(MarketData,Watchlists,Symbols,Chart);
+            multiFinder = new ArmonicMultiFinder(MarketData, Watchlists, Symbols, Chart);
             multiFinder.SetMainEngine(armonicFinder);
         }
         protected override void OnTick()
@@ -55,6 +57,6 @@ namespace cAlgo.Robots {
         //{
         //    base.OnTimer();
         //}
-        
+
     }
 }

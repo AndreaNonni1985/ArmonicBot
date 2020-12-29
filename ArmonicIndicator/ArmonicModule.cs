@@ -12,18 +12,18 @@ using cAlgo.Indicators;
 namespace cAlgo {
     public static class Utils {
 
-        public static TimeFrame[] TimeFrames = { 
-            TimeFrame.Minute, 
-            TimeFrame.Minute2, 
-            TimeFrame.Minute3, 
-            TimeFrame.Minute4, 
-            TimeFrame.Minute5, 
-            TimeFrame.Minute6, 
-            TimeFrame.Minute7, 
-            TimeFrame.Minute8, 
-            TimeFrame.Minute9, 
+        public static TimeFrame[] TimeFrames = {
+            TimeFrame.Minute,
+            TimeFrame.Minute2,
+            TimeFrame.Minute3,
+            TimeFrame.Minute4,
+            TimeFrame.Minute5,
+            TimeFrame.Minute6,
+            TimeFrame.Minute7,
+            TimeFrame.Minute8,
+            TimeFrame.Minute9,
             TimeFrame.Minute10,
-            
+
             TimeFrame.Minute15,
             TimeFrame.Minute20,
             TimeFrame.Minute30,
@@ -458,12 +458,12 @@ namespace cAlgo {
             public ControlBase newColumn(string value) {
                 return new Column(value);
             }
-            
+
             public ResultItem(ArmonicPattern pattern) {
                 Pattern = pattern;
-                Data = new Grid(1, 10) {                    
+                Data = new Grid(1, 10) {
                 };
-                
+
 
                 Data.AddChild(newColumn(pattern.Symbol.Name), 0, 0);
                 Data.AddChild(newColumn(pattern.TimeFrame.ToString()), 0, 1);
@@ -489,10 +489,10 @@ namespace cAlgo {
 
                 PatternButton = new Button() {
                     BackgroundColor = Color.FromArgb(20, Color.Silver),
-                    Content =Data,
-                    HorizontalAlignment=HorizontalAlignment.Left
+                    Content = Data,
+                    HorizontalAlignment = HorizontalAlignment.Left
                 };
-                
+
                 AddChild(PatternButton);
                 Key = pattern.GetKey();
             }
@@ -535,7 +535,7 @@ namespace cAlgo {
             public List<SymbolItem> SymbolItems;
             public bool Selected {
                 get {
-                    return CheckBox.IsChecked==false?false:true;
+                    return CheckBox.IsChecked == false ? false : true;
                 }
             }
 
@@ -549,7 +549,7 @@ namespace cAlgo {
                     Margin = "0 10 0 10",
                     HorizontalAlignment = HorizontalAlignment.Left,
                     //Style = Styles.CreateCheckBoxStyle(),
-                    IsThreeState=true
+                    IsThreeState = true
                 };
                 CheckBox.Click += onWatchlistCheckChange;
                 content.AddChild(CheckBox);
@@ -558,29 +558,31 @@ namespace cAlgo {
                 foreach (string symbolname in watchlist.SymbolNames.ToArray()) {
                     SymbolItems.Add(new SymbolItem(symbolname, onSymbolCheckChange));
                 }
-                foreach(SymbolItem symbolselector in SymbolItems) {
+                foreach (SymbolItem symbolselector in SymbolItems) {
                     content.AddChild(symbolselector);
                 }
                 AddChild(content);
             }
 
             private void onWatchlistCheckChange(CheckBoxEventArgs e) {
-                if (e.CheckBox.IsChecked==null) {
+                if (e.CheckBox.IsChecked == null) {
                     CheckBox.IsChecked = false;
                 }
                 foreach (SymbolItem selector in SymbolItems) {
-                    selector.Selected = CheckBox.IsChecked == false?false:true;
+                    selector.Selected = CheckBox.IsChecked == false ? false : true;
                 }
             }
             private void onSymbolCheckChange(CheckBox sender, CheckBoxEventArgs e) {
-                if (e.CheckBox.IsChecked==true) {
+                if (e.CheckBox.IsChecked == true) {
                     if (SymbolItems.Count(pred => pred.Selected == true) == SymbolItems.Count()) {
                         CheckBox.IsChecked = true;
-                    }else {
+                    }
+                    else {
                         CheckBox.IsChecked = null;
                     }
-                } else {
-                    if (SymbolItems.Count(pred => pred.Selected == false ) == SymbolItems.Count()) {
+                }
+                else {
+                    if (SymbolItems.Count(pred => pred.Selected == false) == SymbolItems.Count()) {
                         CheckBox.IsChecked = false;
                     }
                     else {
@@ -609,7 +611,7 @@ namespace cAlgo {
                 };
                 if (onTimeFrameCheck != null)
                     CheckBox.Click += onTimeFrameCheck;
-                
+
                 AddChild(CheckBox);
             }
         }
@@ -792,7 +794,7 @@ namespace cAlgo {
                 IsVisible = false
             };
 
-            
+
 
             //LOADING
             LoadingBar = new ProgressBar {
@@ -824,7 +826,7 @@ namespace cAlgo {
             ResultItem result = new ResultItem(pattern);
             //ResultItem result = new ResultItem(ResultItemPanel, pattern);
             ResultItems.Add(result);
-            
+
         }
         public void DeleteResult(ArmonicPattern pattern) {
             ResultItem result;
@@ -851,9 +853,9 @@ namespace cAlgo {
                 item.Data.Columns[2].SetWidthInPixels(_value);
                 ResultItemPanel.AddChild(item);
             }
-            
+
         }
-        
+
         private void OnButtonClick(ButtonClickEventArgs obj) {
             switch (obj.Button.Text) {
                 case ("Option"):
@@ -871,7 +873,7 @@ namespace cAlgo {
             }
         }
     }
-    
+
     public class ArmonicPatternEventArgs {
         public PatternEvent EventValue;
     }
@@ -923,7 +925,7 @@ namespace cAlgo {
         public int PositionID;
         public double EnterPrice;
         public double Volume;
-        public ArmonicPattern(Symbol symbol, TimeFrame timeframe , Segment bornSegment) {
+        public ArmonicPattern(Symbol symbol, TimeFrame timeframe, Segment bornSegment) {
             //Bot = bot;
             Symbol = symbol;
             TimeFrame = timeframe;
@@ -1028,7 +1030,7 @@ namespace cAlgo {
             PositionID = PatternToCopy.PositionID;
             EnterPrice = PatternToCopy.EnterPrice;
             Volume = PatternToCopy.Volume;
-        } 
+        }
         public string Report() {
             string result = "";
             result += string.Format("INIZIO ----------------------------------------------");
@@ -1170,109 +1172,6 @@ namespace cAlgo {
 
     //    }
     //}
-
-
-    public class ArmonicMultiFinder {
-
-        private List<ArmonicFinderEngine> multipleFinder;
-        public List<ArmonicPattern> Patterns;
-        private ArmonicFinderEngine mainEngine;
-        private GUI userInterface;
-
-        private Chart Chart;
-        private Watchlists Watchlists;
-        private readonly Symbols Symbols;
-        private readonly MarketData MarketData;
-        public ArmonicMultiFinder(MarketData marketdata, Watchlists watchlists, Symbols symbols, Chart chart) {
-
-
-            MarketData = marketdata;
-            Watchlists = watchlists;
-            Symbols = symbols;
-            Chart = chart;
-
-            userInterface = new GUI(Chart, Watchlists);
-            userInterface.OnClickStart += OnFindStart;
-            multipleFinder = new List<ArmonicFinderEngine>();
-            Patterns = new List<ArmonicPattern>();
-            //userInterface.LoadingBar.Value = 0;
-            //userInterface.LoadingBar.MaxValue = 100;
-            //userInterface.LoadingBar.IsVisible = true;
-        }
-        public void SetMainEngine(ArmonicFinderEngine engine) {
-            mainEngine = engine;
-        }
-        private void AddEngine(ArmonicFinderEngine engine) {
-            engine.Initialize(OnEngineLoaded, OnEngineLoading);
-            engine.onPatternStateChanged += ManagePattern;
-            multipleFinder.Add(engine);
-        }
-        public bool EngineExists(ArmonicFinderEngine engineToCheck) {
-            return multipleFinder.Exists(engine => engine.Key == engineToCheck.Key);
-        }
-        private void ManagePattern(ArmonicPattern pattern, PatternEvent e) {
-            switch (e) {
-                case PatternEvent.Add:
-                    Patterns.Add(pattern);
-                    userInterface.AddResult(pattern);
-                    break;
-                case PatternEvent.Remove:
-                    Patterns.Remove(pattern);
-                    userInterface.DeleteResult(pattern);
-                    break;
-                default:
-
-                    Patterns.First(args => args.GetKey() == pattern.GetKey()).Update(pattern);
-
-                    switch (e) {
-                        case PatternEvent.Compleated:
-
-                            break;
-                        case PatternEvent.Closed:
-
-                            break;
-                        case PatternEvent.Target1:
-
-                            break;
-                        case PatternEvent.Target2:
-
-                            break;
-
-                    }
-                    break;
-
-            }
-            userInterface.DrawResults();
-        }
-
-        protected void OnOtherSymbolBar(BarOpenedEventArgs e) {
-            Debug.Print("New Bar Opened At {0}  Incoming From Symbol {1} in TimeFrame {2}", e.Bars.LastBar.OpenTime.ToString("dd/MM/yyyy:HHmmss"), e.Bars.SymbolName, e.Bars.TimeFrame.ToString());
-        }
-        protected void OnEngineLoading(ArmonicFinderEngine sender, double percentage) {
-            Debug.Print("Loading Data for Symbol {1} : {0}% ...", percentage, sender.MainData.BarsData.SymbolName);
-            userInterface.LoadingBar.Value = Convert.ToInt32(percentage);
-        }
-        protected void OnEngineLoaded(ArmonicFinderEngine sender) {
-            Debug.Print("Loading Finisced for Symbol {0}.", sender.MainData.BarsData.SymbolName);
-            userInterface.LoadingBar.IsVisible = false;
-        }
-        protected void OnFindStart() {
-            AddEngine(mainEngine);
-
-            foreach (GUI.WatchListItem WLItem in userInterface.WatchlistItems.Where(obj => obj.Selected)) {
-                foreach (GUI.SymbolItem SYItem in WLItem.SymbolItems.Where(obj => obj.Selected)) {
-                    foreach (GUI.TimeFrameItem TFItem in userInterface.TimeFrameItems.Where(obj => obj.Selected)) {
-                        ArmonicFinderEngine tmpEngine = new ArmonicFinderEngine(MarketData, Symbols.GetSymbol(SYItem.SymbolName), TFItem.TimeFrame, Chart);
-                        if (!EngineExists(tmpEngine)) {
-                            AddEngine(tmpEngine);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-
     public class ArmonicFinderEngine {
         private readonly Symbol Symbol;
         private readonly TimeFrame MainTimeFrame;
@@ -1295,10 +1194,10 @@ namespace cAlgo {
         private event Action<ArmonicFinderEngine> onDataLoaded;
         public event Action<ArmonicPattern, PatternEvent> onPatternStateChanged;
 
-        public ArmonicFinderEngine(MarketData marketdata, Symbol symbol, TimeFrame timeframe, Chart chart, bool mainSymbol = false) {
+        public ArmonicFinderEngine(MarketData marketdata, Symbol symbol, TimeFrame timeframe, Chart chart, int periods, bool mainSymbol = false) {
             int MinutesFineCalc;
             Key = String.Format("{0}-{1}", symbol.Name, timeframe.ToString());
-            Periods = GlobalParameter.Periods;
+            Periods = periods;
             Symbol = symbol;
             Chart = chart;
             MainTimeFrame = timeframe;
@@ -1340,10 +1239,10 @@ namespace cAlgo {
                 if (onDataLoaded != null)
                     onDataLoaded.Invoke(this);
 
-                
+
                 MainData.RequestTicks(MainData.BarsData.LastBar.OpenTime);
-                
-                
+
+
 
                 SimulatePatterns(Symbol, MainTimeFrame);
 
@@ -1425,7 +1324,7 @@ namespace cAlgo {
             //    oldList[i] = new ArmonicPattern(pattern);
             //    i++;
             //}
-            
+
 
             FineCalculate(false, Symbol.Bid, MainData.BarsData.LastBar.OpenTime);
 
@@ -1467,7 +1366,7 @@ namespace cAlgo {
             //        }
             //    }
             //}
-          
+
 
         }
 
@@ -1528,8 +1427,8 @@ namespace cAlgo {
             }
 
             //scorri tutti i pattern e segnala gli eventi di aggiunta
-            foreach (ArmonicPattern pattern in PatternList.Where(obj => obj.Drawable==true && obj.Closed==false)) {
-                onPatternStateChanged.Invoke(pattern,PatternEvent.Add);
+            foreach (ArmonicPattern pattern in PatternList.Where(obj => obj.Drawable == true && obj.Closed == false)) {
+                onPatternStateChanged.Invoke(pattern, PatternEvent.Add);
             }
             _signalPatternEvent = true;
         }
@@ -2211,7 +2110,7 @@ namespace cAlgo {
                 if (pattern.DrawableArea.InArea(TradePrice) || pattern.Compleated) {
                     if (pattern.Drawable == false && _signalPatternEvent) {
                         onPatternStateChanged.Invoke(pattern, PatternEvent.Add);
-                    } 
+                    }
                     pattern.Drawable = true;
                 }
                 else {
